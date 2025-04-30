@@ -1,17 +1,24 @@
+# 핵심 패키지
 streamlit>=1.0.0
-flask>=2.0.1
-pandas>=1.5.0
 numpy>=1.24.0
+scipy>=1.10.0
+pandas>=1.5.0
+
+# 과학/분석 패키지
 scikit-learn>=1.0
-matplotlib>=3.4.3
-wordcloud>=1.8.1
-konlpy>=0.6.0
-networkx>=2.6.3
-seaborn>=0.11.2
 gensim>=4.1.2
+matplotlib>=3.4.3
+seaborn>=0.11.2
+networkx>=2.6.3
+wordcloud>=1.8.1
+
+# 한국어 처리 패키지
+konlpy>=0.6.0
+jpype1>=1.4.1
+soynlp>=0.0.493
+nltk>=3.6.5
+
+# 웹 관련 패키지
+flask>=2.0.1
 beautifulsoup4>=4.10.0
 gunicorn>=20.1.0
-jpype1>=1.4.1
-nltk>=3.6.5
-soynlp>=0.0.493
-scipy>=1.10.0  # 추가된 부분
