@@ -18,8 +18,8 @@
 
 ```bash
 # 저장소 클론
-git clone https://github.com/yourusername/korean-text-mining.git
-cd korean-text-mining
+git clone https://github.com/jk0601/LDA_TEXT.git
+cd LDA_TEXT
 
 # 가상 환경 생성 및 활성화
 python -m venv venv
@@ -39,7 +39,7 @@ python app.py
 3. 품사 태깅 옵션을 선택합니다.
 4. 불용어를 설정합니다 (선택사항).
 5. '분석 시작' 버튼을 클릭합니다.
-6. 분석 결과를 확인하고 CSV로 다운로드할 수 있습니다.
+6. 분석 결과를 확인하고 다운로드할 수 있습니다.
 
 ## 배포
 
