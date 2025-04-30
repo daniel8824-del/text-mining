@@ -1,0 +1,13 @@
+services:
+  # A Flask web service
+  - type: web
+    name: korean-text-mining
+    env: python
+    buildCommand: pip install --no-cache-dir -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: APT_PACKAGES
+        value: g++ default-jdk default-jre python3-dev
+    plan: free 

@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>텍스트 마이닝 분석</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .result-section {
+            margin-top: 2rem;
+            padding: 1rem;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        #results {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">텍스트 마이닝 분석</h1>
+
+        <form id="analysisForm" class="mb-4">
+            <div class="mb-3">
+                <label for="file" class="form-label">파일 업로드 (CSV)</label>
+                <input type="file" class="form-control" id="file" name="file" accept=".csv" required>
+            </div>
+
+            <div class="mb-3">
+                <label for="text_column" class="form-label">텍스트 컬럼명 (리뷰내용, 제목, 설명 등 분석하고 싶은 컬럼명 입력)</label>
+                <input type="text" class="form-control" id="text_column" name="text_column" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">품사 태깅 옵션</label>
+                <div class="form-check">
+                    {% for value, label in pos_options.items() %}
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="pos_tags" value="{{ value }}"
+                            id="pos_{{ value }}">
+                        <label class="form-check-label" for="pos_{{ value }}">
+                            {{ label }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="stopwords" class="form-label">불용어 설정 (쉼표로 구분)</label>
+                <textarea class="form-control" id="stopwords" name="stopwords" rows="3"
+                    placeholder="예: 단어1,단어2,단어3"></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary">분석 시작</button>
+        </form>
+
+        <div class="loading">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">분석 중입니다...</p>
+        </div>
+
+        <div id="results">
+            <!-- 키워드 분석 결과 -->
+            <div class="result-section">
+                <h3>주요 키워드 (빈도수 기준)</h3>
+                <div id="keywordResults"></div>
+            </div>
+
+            <!-- TF-IDF 분석 결과 -->
+            <div class="result-section">
+                <h3>TF-IDF 키워드</h3>
+                <div id="tfidfResults"></div>
+            </div>
+
+            <!-- 토픽 모델링 결과 -->
+            <div class="result-section">
+                <h3>토픽 모델링 결과</h3>
+                <div id="topicResults"></div>
+            </div>
+
+            <!-- 감정 분석 결과 -->
+            <div class="result-section">
+                <h3>감정 분석 결과</h3>
+                <div id="sentimentResults"></div>
+            </div>
+
+            <!-- 워드클라우드 -->
+            <div class="result-section">
+                <h3>워드클라우드</h3>
+                <div id="wordcloudResults"></div>
+            </div>
+
+            <!-- 키워드 네트워크 -->
+            <div class="result-section">
+                <h3>키워드 네트워크 분석</h3>
+                <div id="networkResults"></div>
+            </div>
+
+            <!-- 상관관계 히트맵 -->
+            <div class="result-section">
+                <h3>키워드 상관관계 히트맵</h3>
+                <div id="heatmapResults"></div>
+            </div>
+
+            <!-- 긍정/부정 워드클라우드 -->
+            <div class="result-section">
+                <h3>감정 분석 워드클라우드</h3>
+                <div id="sentimentCloudResults"></div>
+            </div>
+
+            <!-- 토픽 점유율 -->
+            <div class="result-section">
+                <h3>토픽 점유율 차트</h3>
+                <div id="topicSharesResults"></div>
+            </div>
+
+            <!-- 중심성 분석 -->
+            <div class="result-section">
+                <h3>키워드 중심성 분석</h3>
+                <div id="centralityResults"></div>
+            </div>
+
+            <!-- 클러스터링 분석 -->
+            <div class="result-section">
+                <h3>키워드 클러스터 분석</h3>
+                <div id="clusteringResults"></div>
+            </div>
+
+            <!-- 키워드 영향력 버블 차트 -->
+            <div class="result-section">
+                <h3>키워드 영향력 버블 차트</h3>
+                <div id="bubbleChartResults"></div>
+            </div>
+
+            <!-- 키워드 군집 3D 시각화 -->
+            <div class="result-section">
+                <h3>키워드 군집 3D 시각화</h3>
+                <div id="clusters3dResults"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 다운로드 버튼들 -->
+    <div class="mb-4 text-center">
+        <button id="download-csv" class="btn btn-success me-2" style="display: none;">CSV 다운로드</button>
+        <button id="download-pdf" class="btn btn-danger me-2" style="display: none;">결과 및 이미지 다운로드(ZIP)</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('analysisForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const loading = document.querySelector('.loading');
+            const results = document.getElementById('results');
+
+            try {
+                loading.style.display = 'block';
+                results.style.display = 'none';
+
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // 키워드 결과 표시
+                    const keywordHtml = `
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>키워드</th>
+                                    <th>빈도수</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.keywords.map(k => `
+                                    <tr>
+                                        <td>${k.word}</td>
+                                        <td>${k.freq}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                    document.getElementById('keywordResults').innerHTML = keywordHtml;
+
+                    // TF-IDF 결과 표시
+                    const tfidfHtml = `
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>키워드</th>
+                                    <th>TF-IDF 점수</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.tfidf_keywords.map(k => `
+                                    <tr>
+                                        <td>${k.word}</td>
+                                        <td>${k.score.toFixed(4)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                    document.getElementById('tfidfResults').innerHTML = tfidfHtml;
+
+                    // 토픽 모델링 결과 표시
+                    const topicHtml = data.topics.map(topic => `
+                        <div class="mb-3">
+                            <h4>토픽 ${topic.topic_id}</h4>
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>키워드</th>
+                                        <th>가중치</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${topic.words.map(w => `
+                                        <tr>
+                                            <td>${w.word}</td>
+                                            <td>${w.score.toFixed(4)}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `).join('');
+                    document.getElementById('topicResults').innerHTML = topicHtml;
+
+                    // 감정 분석 결과 표시
+                    const total = data.sentiment.positive + data.sentiment.negative + data.sentiment.neutral;
+                    const sentimentHtml = `
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="card text-white bg-success">
+                                    <div class="card-body">
+                                        <h5 class="card-title">긍정</h5>
+                                        <p class="card-text">${data.sentiment.positive} (${((data.sentiment.positive / total) * 100).toFixed(1)}%)</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card text-white bg-danger">
+                                    <div class="card-body">
+                                        <h5 class="card-title">부정</h5>
+                                        <p class="card-text">${data.sentiment.negative} (${((data.sentiment.negative / total) * 100).toFixed(1)}%)</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card text-white bg-secondary">
+                                    <div class="card-body">
+                                        <h5 class="card-title">중립</h5>
+                                        <p class="card-text">${data.sentiment.neutral} (${((data.sentiment.neutral / total) * 100).toFixed(1)}%)</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    document.getElementById('sentimentResults').innerHTML = sentimentHtml;
+
+                    // 워드클라우드 표시
+                    document.getElementById('wordcloudResults').innerHTML = `
+                        <img src="${data.wordcloud_path}" class="img-fluid" alt="워드클라우드">
+                    `;
+
+                    // 키워드 네트워크 표시
+                    if (data.network_path) {
+                        let networkHtml = `
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <img src="${data.network_path}" class="img-fluid" alt="키워드 네트워크">
+                                </div>
+                            </div>
+                        `;
+
+                        if (data.network_nodes && data.network_nodes.length > 0) {
+                            networkHtml += `
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <h5>주요 노드 목록</h5>
+                                        <table class="table">
+                                            <thead>
+                                                <tr>
+                                                    <th>키워드</th>
+                                                    <th>빈도수</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${data.network_nodes.map(node => `
+                                                    <tr>
+                                                        <td>${node.word}</td>
+                                                        <td>${node.size}</td>
+                                                    </tr>
+                                                `).join('')}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            `;
+                        }
+
+                        document.getElementById('networkResults').innerHTML = networkHtml;
+                    } else {
+                        document.getElementById('networkResults').innerHTML = '<p>네트워크 분석 결과를 생성할 수 없습니다.</p>';
+                    }
+
+                    // 상관관계 히트맵 표시
+                    if (data.heatmap_path) {
+                        document.getElementById('heatmapResults').innerHTML = `
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <img src="${data.heatmap_path}" class="img-fluid" alt="키워드 상관관계 히트맵">
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        document.getElementById('heatmapResults').innerHTML = '<p>상관관계 히트맵을 생성할 수 없습니다.</p>';
+                    }
+
+                    // 긍정/부정 워드클라우드 표시
+                    let sentimentCloudHtml = '<div class="row">';
+
+                    if (data.pos_wordcloud_path) {
+                        sentimentCloudHtml += `
+                            <div class="col-md-6">
+                                <h5>긍정 단어 워드클라우드</h5>
+                                <img src="${data.pos_wordcloud_path}" class="img-fluid" alt="긍정 단어 워드클라우드">
+                            </div>
+                        `;
+                    }
+
+                    if (data.neg_wordcloud_path) {
+                        sentimentCloudHtml += `
+                            <div class="col-md-6">
+                                <h5>부정 단어 워드클라우드</h5>
+                                <img src="${data.neg_wordcloud_path}" class="img-fluid" alt="부정 단어 워드클라우드">
+                            </div>
+                        `;
+                    }
+
+                    sentimentCloudHtml += '</div>';
+
+                    if (data.pos_wordcloud_path || data.neg_wordcloud_path) {
+                        document.getElementById('sentimentCloudResults').innerHTML = sentimentCloudHtml;
+                    } else {
+                        document.getElementById('sentimentCloudResults').innerHTML = '<p>감정 분석 워드클라우드를 생성할 수 없습니다.</p>';
+                    }
+
+                    // 토픽 점유율 표시
+                    if (data.topic_shares_path) {
+                        document.getElementById('topicSharesResults').innerHTML = `
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <img src="${data.topic_shares_path}" class="img-fluid" alt="토픽 점유율 차트">
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        document.getElementById('topicSharesResults').innerHTML = '<p>토픽 점유율 차트를 생성할 수 없습니다.</p>';
+                    }
+
+                    // 중심성 분석 표시
+                    if (data.centrality_path) {
+                        document.getElementById('centralityResults').innerHTML = `
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <img src="${data.centrality_path}" class="img-fluid" alt="키워드 중심성 분석">
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        document.getElementById('centralityResults').innerHTML = '<p>키워드 중심성 분석을 생성할 수 없습니다.</p>';
+                    }
+
+                    // 클러스터링 분석 표시
+                    if (data.clustering_path) {
+                        let clusteringHtml = `
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <img src="${data.clustering_path}" class="img-fluid" alt="키워드 클러스터 분석">
+                                </div>
+                            </div>
+                        `;
+
+                        if (data.community_info && data.community_info.length > 0) {
+                            clusteringHtml += `
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <h5>클러스터 정보</h5>
+                                        <div class="table-responsive">
+                                            <table class="table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>클러스터</th>
+                                                        <th>크기</th>
+                                                        <th>주요 키워드</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    ${data.community_info.map(community => `
+                                                        <tr>
+                                                            <td>클러스터 ${community.id}</td>
+                                                            <td>${community.size}</td>
+                                                            <td>${community.top_words.map(w => w.word).join(', ')}</td>
+                                                        </tr>
+                                                    `).join('')}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+
+                        document.getElementById('clusteringResults').innerHTML = clusteringHtml;
+                    } else {
+                        document.getElementById('clusteringResults').innerHTML = '<p>키워드 클러스터 분석을 생성할 수 없습니다.</p>';
+                    }
+
+                    // 키워드 영향력 버블 차트 표시
+                    if (data.bubble_path) {
+                        document.getElementById('bubbleChartResults').innerHTML = `
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <img src="${data.bubble_path}" class="img-fluid" alt="키워드 영향력 버블 차트">
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        document.getElementById('bubbleChartResults').innerHTML = '<p>키워드 영향력 버블 차트를 생성할 수 없습니다.</p>';
+                    }
+
+                    // 키워드 군집 3D 시각화 표시
+                    if (data.clusters3d_path) {
+                        document.getElementById('clusters3dResults').innerHTML = `
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <img src="${data.clusters3d_path}" class="img-fluid" alt="키워드 군집 3D 시각화">
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        document.getElementById('clusters3dResults').innerHTML = '<p>키워드 군집 3D 시각화를 생성할 수 없습니다.</p>';
+                    }
+
+                    // CSV 다운로드 버튼 표시
+                    document.getElementById('download-csv').style.display = 'inline-block';
+                    // PDF 다운로드 버튼 표시
+                    document.getElementById('download-pdf').style.display = 'inline-block';
+
+                    results.style.display = 'block';
+                } else {
+                    alert(data.error || '분석 중 오류가 발생했습니다.');
+                }
+            } catch (error) {
+                alert('서버 오류가 발생했습니다.');
+                console.error(error);
+            } finally {
+                loading.style.display = 'none';
+            }
+        });
+
+        // CSV 다운로드 버튼 클릭 이벤트
+        document.getElementById('download-csv').addEventListener('click', async function () {
+            try {
+                // 현재 분석 결과에서 필요한 데이터 수집
+                const tableData = [];
+
+                // 키워드 데이터 추가
+                if (document.getElementById('keywordResults').querySelector('table')) {
+                    const keywordRows = document.getElementById('keywordResults').querySelectorAll('tbody tr');
+                    keywordRows.forEach((row) => {
+                        const cells = row.querySelectorAll('td');
+                        tableData.push({
+                            '분석_유형': '키워드 분석',
+                            '키워드': cells[0].textContent,
+                            '값': cells[1].textContent,
+                            '비고': ''
+                        });
+                    });
+                }
+
+                // TF-IDF 데이터 추가
+                if (document.getElementById('tfidfResults').querySelector('table')) {
+                    const tfidfRows = document.getElementById('tfidfResults').querySelectorAll('tbody tr');
+                    tfidfRows.forEach((row) => {
+                        const cells = row.querySelectorAll('td');
+                        tableData.push({
+                            '분석_유형': 'TF-IDF 분석',
+                            '키워드': cells[0].textContent,
+                            '값': cells[1].textContent,
+                            '비고': ''
+                        });
+                    });
+                }
+
+                // 토픽 모델링 결과 추가
+                const topicResults = document.getElementById('topicResults');
+                if (topicResults) {
+                    const topicSections = topicResults.querySelectorAll('div.mb-3');
+                    topicSections.forEach((section) => {
+                        const topicTitle = section.querySelector('h4').textContent;
+                        const topicRows = section.querySelectorAll('tbody tr');
+
+                        topicRows.forEach((row) => {
+                            const cells = row.querySelectorAll('td');
+                            tableData.push({
+                                '분석_유형': topicTitle,
+                                '키워드': cells[0].textContent,
+                                '값': cells[1].textContent,
+                                '비고': '토픽 모델링'
+                            });
+                        });
+                    });
+                }
+
+                // 서버에 데이터 전송하여 CSV 다운로드
+                const response = await fetch('/download_csv', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(tableData)
+                });
+
+                if (response.ok) {
+                    // 응답을 Blob으로 변환
+                    const blob = await response.blob();
+                    // Blob URL 생성
+                    const url = window.URL.createObjectURL(blob);
+                    // 다운로드 링크 생성 및 클릭
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = '텍스트_분석_결과.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    throw new Error('CSV 다운로드 실패');
+                }
+            } catch (error) {
+                alert('CSV 다운로드 중 오류가 발생했습니다.');
+                console.error(error);
+            }
+        });
+
+        // PDF 다운로드 버튼 클릭 이벤트
+        document.getElementById('download-pdf').addEventListener('click', async function () {
+            try {
+                // 현재 분석 결과 HTML을 가져옴
+                const resultsContainer = document.getElementById('results');
+                const htmlContent = resultsContainer.innerHTML;
+                
+                // ZIP 다운로드를 위한 서버 요청
+                const formData = new FormData();
+                formData.append('html_content', htmlContent);
+                
+                // POST 요청으로 변경
+                const response = await fetch('/download_pdf', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    // 응답을 Blob으로 변환
+                    const blob = await response.blob();
+                    // Blob URL 생성
+                    const url = window.URL.createObjectURL(blob);
+                    // 다운로드 링크 생성 및 클릭
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = '텍스트_분석_결과.zip';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    throw new Error('ZIP 다운로드 실패');
+                }
+            } catch (error) {
+                alert('ZIP 다운로드 중 오류가 발생했습니다.');
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+
+</html>
