@@ -48,7 +48,7 @@ def analyze():
             return jsonify({'error': '파일이 선택되지 않았습니다.'}), 400
             
         # 파일 저장
-        upload_dir = os.path.join(BASE_DIR, 'data', 'uploads')
+        upload_dir = os.path.join(BASE_DIR, 'data')
         os.makedirs(upload_dir, exist_ok=True)
         file_path = os.path.join(upload_dir, file.filename)
         file.save(file_path)
