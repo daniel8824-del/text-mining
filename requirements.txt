@@ -14,3 +14,4 @@ gunicorn>=20.1.0
 jpype1>=1.4.1
 nltk>=3.6.5
 soynlp>=0.0.493
+scipy>=1.10.0  # 추가된 부분
