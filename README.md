@@ -43,7 +43,7 @@ python app.py
 
 ## 배포
 
-이 애플리케이션은 [Render](https://render.com/)를 사용하여 배포할 수 있습니다.
+이 애플리케이션은 streamlit을 사용하여 배포할 수 있습니다.
 
 ## 라이센스
 
