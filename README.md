@@ -51,4 +51,4 @@ MIT 라이센스
 
 ## 연락처
 
-- 문의사항: youremail@example.com 
+- 문의사항: jkj0601@gmail.com 
