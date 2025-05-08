@@ -1,0 +1,53 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 가상환경
+venv/
+textmining_env/
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 로그 및 임시 파일
+*.log
+*.csv
+*.json
+*.zip
+*.tar
+*.tar.gz
+uploads/*
+!uploads/.gitkeep
+visualization_results/*
+!visualization_results/.gitkeep
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore 

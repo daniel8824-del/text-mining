@@ -160,6 +160,10 @@ async def analyze_text(
                 font_path = 'C:/Windows/Fonts/malgun.ttf'
             elif os.path.exists('/usr/share/fonts/truetype/nanum/NanumGothic.ttf'):  # Ubuntu with Nanum
                 font_path = '/usr/share/fonts/truetype/nanum/NanumGothic.ttf'
+            elif os.path.exists('/app/fonts/NanumGothic.ttf'):  # Docker 환경
+                font_path = '/app/fonts/NanumGothic.ttf'
+            else:
+                print("한글 폰트를 찾을 수 없습니다. 기본 폰트를 사용합니다.")
             
             wordcloud = analyzer.create_word_cloud(font_path=font_path)
             wordcloud_path = os.path.join(STATIC_DIR, f'wordcloud_{unique_filename}.png')

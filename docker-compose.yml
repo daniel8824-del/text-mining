@@ -1,0 +1,15 @@
+version: '3'
+
+services:
+  textmining-app:
+    build: .
+    container_name: textmining-app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./static:/app/static
+      - ./uploads:/app/uploads
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=8000 
