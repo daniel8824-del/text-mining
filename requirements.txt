@@ -1,5 +1,10 @@
+# 웹 프레임워크
+fastapi>=0.110.0
+uvicorn>=0.27.0
+python-multipart>=0.0.9
+Jinja2>=3.1.2
+
 # 핵심 패키지
-streamlit>=1.0.0
 numpy>=1.24.0
 scipy>=1.10.0
 pandas>=1.5.0
@@ -19,6 +24,5 @@ soynlp>=0.0.493
 nltk>=3.6.5
 
 # 웹 관련 패키지
-flask>=2.0.1
-beautifulsoup4>=4.10.0
 gunicorn>=20.1.0
+requests>=2.28.0 

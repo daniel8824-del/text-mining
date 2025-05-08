@@ -1,13 +1,16 @@
 services:
-  # A Flask web service
+  # FastAPI 웹 서비스
   - type: web
-    name: korean-text-mining
+    name: textmining-api
     env: python
-    buildCommand: pip install --no-cache-dir -r requirements.txt
-    startCommand: gunicorn app:app
+    region: singapore  # 가장 가까운 리전 선택
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn fastapi_app:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.9
-      - key: APT_PACKAGES
-        value: g++ default-jdk default-jre python3-dev
-    plan: free 
+        value: 3.9.0
+      - key: PYTHONPATH
+        value: .
+      - key: MAX_WORKERS
+        value: 4
+    autoDeploy: true 
