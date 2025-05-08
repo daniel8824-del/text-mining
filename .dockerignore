@@ -37,8 +37,6 @@ textmining_env/
 
 # 로그 및 임시 파일
 *.log
-*.csv
-!knu_sentiment_lexicon.csv
 *.json
 *.zip
 *.tar
