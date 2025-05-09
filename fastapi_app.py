@@ -15,7 +15,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 import pandas as pd
 import shutil
-from typing import List, Optional
+from typing import List, Optional, Any
 import uvicorn
 from text_mining_analysis import TextMiningAnalysis
 import matplotlib.pyplot as plt
@@ -337,7 +337,7 @@ async def analyze_text(
     background_tasks: BackgroundTasks = None,
     file: Optional[UploadFile] = File(None),
     text_column: Optional[str] = Form(None),
-    pos_tags: Optional[List[str]] = Form(None),
+    pos_tags: Optional[Any] = Form(None),
     stopwords: Optional[str] = Form(None)
 ):
     # 디버깅용 요청 정보 로깅
@@ -355,8 +355,21 @@ async def analyze_text(
         logger.error("필수 텍스트 컬럼명이 제공되지 않았습니다.")
         raise HTTPException(status_code=400, detail="텍스트 컬럼명이 제공되지 않았습니다.")
     
+    # pos_tags 처리 개선
+    processed_pos_tags = None
+    if pos_tags:
+        # pos_tags가 이미 리스트인 경우
+        if isinstance(pos_tags, list):
+            processed_pos_tags = pos_tags
+        # 단일 문자열인 경우 리스트로 변환
+        elif isinstance(pos_tags, str):
+            processed_pos_tags = [pos_tags]
+        # 쉼표로 구분된 문자열인 경우
+        elif isinstance(pos_tags, str) and ',' in pos_tags:
+            processed_pos_tags = [tag.strip() for tag in pos_tags.split(',') if tag.strip()]
+    
     logger.info(f"파일명: {file.filename}, 텍스트 컬럼: {text_column}")
-    logger.info(f"품사 태그: {pos_tags}, 불용어 지정 여부: {'있음' if stopwords else '없음'}")
+    logger.info(f"품사 태그: {processed_pos_tags}, 불용어 지정 여부: {'있음' if stopwords else '없음'}")
     
     # 현재 메모리 상태 확인
     memory_percent = get_memory_usage_percent()
@@ -408,7 +421,7 @@ async def analyze_text(
         analyzer = TextMiningAnalysis(file_path=file_path, text_column=text_column)
         
         # 품사 태깅 및 전처리
-        pos_filter = pos_tags if pos_tags else None
+        pos_filter = processed_pos_tags  # 수정된 품사 태그 사용
         analyzer.preprocess_text(pos_filter=pos_filter, custom_stopwords=custom_stopwords)
         
         # 메모리 정보 출력
