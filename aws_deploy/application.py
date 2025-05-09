@@ -1443,7 +1443,8 @@ async def analyze_text(
                                            zorder=100)  # zorder를 높게 설정하여 항상 맨 앞에 표시
                                     
                                     # Z-buffer 설정 - 투명도 처리 최적화
-                                    text_box.set_3d_properties(zdir='z', dep=0)
+                                    text_box.set_3d_properties(zdir='z')
+                                    text_box.set_zorder(100)  # zorder 값을 높게 설정
                         
                         # 3D 효과 및 뷰 개선
                         ax.set_title('키워드 군집 3D 시각화 (클러스터 5개로 제한)', fontsize=14)
@@ -1885,4 +1886,4 @@ async def health_check():
 
 if __name__ == "__main__":
     # 로컬 개발 시 사용
-    uvicorn.run("fastapi_app_aws:app", host="0.0.0.0", port=8000, reload=True) 
+    uvicorn.run("fastapi_app:app", host="0.0.0.0", port=8000, reload=True) 
