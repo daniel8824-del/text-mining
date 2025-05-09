@@ -35,6 +35,7 @@ import gc
 import threading
 import time
 import math
+import random
 
 # 인터랙티브 시각화를 위한 plotly 모듈 (필요시에만 로드됨)
 try:
@@ -1383,6 +1384,13 @@ async def analyze_text(
                                 # 클러스터 중심에 키워드 표시
                                 if len(cluster_keywords[i]) > 0:
                                     # 키워드 텍스트 길이 제한 (너무 길면 잘림)
+                                    keywords_text = ', '.join(cluster_keywords[i][:2])  # 3개에서 2개로 변경
+                                    if len(keywords_text) > 15:  # 최대 길이를 30에서 15로 줄임
+                                        keywords_text = keywords_text[:12] + "..."
+                                        
+                                    # 클러스터 이름 형식 변경 - 더 간결하게
+                                    cluster_name = f'#{i+1}: {keywords_text}'
+                                    
                                     keywords_text = ', '.join(cluster_keywords[i][:3])
                                     if len(keywords_text) > 30:  # 최대 30자로 제한
                                         keywords_text = keywords_text[:27] + "..."
@@ -1453,11 +1461,12 @@ async def analyze_text(
                                     
                                     if len(cluster_points) > 0:
                                         # 키워드 텍스트 길이 제한
-                                        keywords_str = ", ".join(cluster_keywords[i][:3])
-                                        if len(keywords_str) > 30:  # 최대 30자로 제한
-                                            keywords_str = keywords_str[:27] + "..."
+                                        keywords_str = ", ".join(cluster_keywords[i][:2])  # 3개에서 2개로 줄임
+                                        if len(keywords_str) > 15:  # 최대 길이 제한
+                                            keywords_str = keywords_str[:12] + "..."
                                             
-                                        cluster_name = f'클러스터 {i+1}: {keywords_str}'
+                                        # 간결한 형식으로 변경
+                                        cluster_name = f'#{i+1}: {keywords_str}'
                                         
                                         # RGB 색상 변환
                                         r = int(colors_3d[i][0]*255)
@@ -1490,22 +1499,20 @@ async def analyze_text(
                                         'yanchor': 'top'
                                     },
                                     scene=dict(
-                                        xaxis_title={'text': 'X 차원', 'font': {'size': 14}},
-                                        yaxis_title={'text': 'Y 차원', 'font': {'size': 14}},
-                                        zaxis_title={'text': 'Z 차원', 'font': {'size': 14}},
-                                        # 축 범위 자동 조정이 아닌 명시적 설정 (잘림 방지)
+                                        xaxis_title='X 차원',
+                                        yaxis_title='Y 차원',
+                                        zaxis_title='Z 차원',
                                         aspectratio={'x': 1, 'y': 1, 'z': 1}
                                     ),
                                     legend=dict(
                                         font=dict(size=12),
                                         x=0,
                                         y=1,
-                                        bgcolor='rgba(255, 255, 255, 0.8)',
+                                        bgcolor='rgba(255, 255, 255, 0.7)',
                                         bordercolor='gray',
                                         borderwidth=1
                                     ),
-                                    # 여백 크게 설정 (텍스트 잘림 방지)
-                                    margin=dict(l=10, r=10, b=10, t=60, pad=10),
+                                    margin=dict(l=0, r=0, b=0, t=40),
                                     autosize=True,
                                     width=900,
                                     height=700

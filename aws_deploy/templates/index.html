@@ -970,7 +970,7 @@
                                 </div>
                                 <div class="p-3 text-center">
                                     <a href="${data.interactive_3d_path}" target="_blank" class="btn btn-primary btn-lg px-4 py-2">
-                                        <i class="fas fa-external-link-alt me-2"></i> 새 창에서 열기 (더 넓게 보기)
+                                        <i class="fas fa-external-link-alt me-2"></i> 새 창에서 열기
                                     </a>
                                     <p class="text-muted mt-2 small">
                                         <i class="fas fa-info-circle me-1"></i> 새 창에서 열면 더 큰 화면으로 확대/축소/회전이 가능합니다
@@ -1138,7 +1138,9 @@
                 // POST 요청으로 변경
                 const response = await fetch('/download_pdf', {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    // 타임아웃 설정 (2분 = 120000ms)
+                    timeout: 120000
                 });
                 
                 if (response.ok) {
@@ -1158,15 +1160,19 @@
                     // 다운로드 성공 메시지
                     showAlert('success', 'ZIP 파일이 성공적으로 다운로드되었습니다.');
                 } else {
-                    throw new Error('ZIP 다운로드 실패');
+                    if (response.status === 504 || response.status === 408) {
+                        throw new Error('ZIP 파일 생성 시간이 초과되었습니다. 다시 시도해 주세요.');
+                    } else {
+                        throw new Error('ZIP 다운로드 실패 (코드: ' + response.status + ')');
+                    }
                 }
             } catch (error) {
-                showAlert('danger', 'ZIP 다운로드 중 오류가 발생했습니다.');
+                showAlert('danger', `ZIP 다운로드 중 오류가 발생했습니다: ${error.message}`);
                 console.error(error);
             } finally {
                 // 버튼 상태 복원
                 this.disabled = false;
-                this.innerHTML = '<i class="fas fa-file-archive me-2"></i> 결과 및 이미지 다운로드(ZIP)';
+                this.innerHTML = '<i class="fas fa-file-archive me-2"></i> 결과 및 이미지 다운로드 (ZIP)';
             }
         });
     </script>
