@@ -436,6 +436,12 @@
                                 <h3><i class="fas fa-cube me-2"></i>키워드 군집 3D 시각화</h3>
                                 <div id="clusters3dResults" class="text-center"></div>
                             </div>
+                            
+                            <!-- 인터랙티브 3D 시각화 -->
+                            <div class="result-section">
+                                <h3><i class="fas fa-cubes me-2"></i>인터랙티브 3D 시각화 (확대/축소/회전 가능)</h3>
+                                <div id="interactive3dResults" class="text-center"></div>
+                            </div>
                         </div>
                     </div>
                     
@@ -910,6 +916,24 @@
                     `;
                 } else {
                     document.getElementById('clusters3dResults').innerHTML = '<div class="alert alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>키워드 군집 3D 시각화를 생성할 수 없습니다.</div>';
+                }
+                
+                // 인터랙티브 3D 시각화 표시
+                if (data.interactive_3d_path) {
+                    document.getElementById('interactive3dResults').innerHTML = `
+                        <div class="card shadow-sm">
+                            <div class="card-body p-0">
+                                <div class="ratio ratio-16x9">
+                                    <iframe src="${data.interactive_3d_path}" allowfullscreen></iframe>
+                                </div>
+                                <a href="${data.interactive_3d_path}" target="_blank" class="btn btn-primary m-2">
+                                    <i class="fas fa-external-link-alt me-2"></i> 새 창에서 열기
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('interactive3dResults').innerHTML = '<div class="alert alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>인터랙티브 3D 시각화를 생성할 수 없습니다.</div>';
                 }
 
                 // 데이터 로드가 완료됨을 알림

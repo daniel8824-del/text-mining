@@ -34,6 +34,15 @@ import psutil
 import gc
 import threading
 import time
+import math
+
+# 인터랙티브 시각화를 위한 plotly 모듈 (필요시에만 로드됨)
+try:
+    import plotly.graph_objects as go
+    from plotly.offline import plot
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
 
 # 로깅 설정
 logging.basicConfig(
@@ -847,11 +856,7 @@ async def analyze_text(
             
         # 10. 키워드 중심성 분석
         try:
-            # network 변수가 정의되었는지 확인
-            network = None  # 초기값 설정
-            
-            # 이전 단계에서 생성된 네트워크가 있는지 확인
-            if 'network' in locals() and network is not None and len(network.nodes()) > 5:
+            if network and len(network.nodes()) > 5:  # 최소한의 노드가 있는지 확인
                 # 중심성 계산
                 degree_centrality = nx.degree_centrality(network)
                 betweenness_centrality = nx.betweenness_centrality(network, k=10)
@@ -908,7 +913,6 @@ async def analyze_text(
                     results['centrality_path'] = ''
             else:
                 results['centrality_path'] = ''
-                logger.info("중심성 분석을 위한 네트워크가 없거나 노드 수가 부족합니다.")
         except Exception as centrality_error:
             logger.error(f"중심성 분석 오류: {centrality_error}")
             logger.error(traceback.format_exc())
@@ -1379,76 +1383,108 @@ async def analyze_text(
                                 # 클러스터 중심에 키워드 표시
                                 if len(cluster_keywords[i]) > 0:
                                     keyword_text = f"#{i+1}: {', '.join(cluster_keywords[i][:3])}"
-                                    ax.text(center_x, center_y, center_z, keyword_text, 
-                                            fontsize=9, ha='center', va='center',
-                                            bbox=dict(facecolor='white', alpha=0.7, boxstyle='round'))
+                                    # 3D 시각화를 위한 텍스트 오프셋 설정
+                                    text_offset_x = center_x + (i * 20)  # x 방향 오프셋
+                                    text_offset_y = center_y + (i * 25)  # y 방향 오프셋
+                                    text_offset_z = center_z + (i * 30)  # z 방향 오프셋 (더 크게)
+                                    
+                                    # 텍스트 박스 스타일 개선
+                                    text_obj = ax.text(text_offset_x, text_offset_y, text_offset_z, keyword_text, 
+                                            fontsize=10, ha='center', va='center',
+                                            bbox=dict(facecolor='white', alpha=0.95, boxstyle='round,pad=0.7',
+                                                     edgecolor='gray', linewidth=1.5))
+                                    
+                                    # 클러스터 중심과 텍스트 박스 연결선 추가 (점선)
+                                    ax.plot([center_x, text_offset_x], [center_y, text_offset_y], [center_z, text_offset_z], 
+                                           'gray', linestyle='--', linewidth=1.2, alpha=0.7)
                         
-                        ax.set_title('키워드 군집 3D 시각화 (클러스터 5개로 제한)', fontsize=14)
+                        ax.set_title('키워드 군집 3D 시각화', fontsize=14)
                         ax.view_init(30, 45)  # 시각화 각도 조정
                         
                         # 범례 추가 - 모든 클러스터 표시
                         ax.legend(fontsize=9, title="클러스터 구분", loc='upper right')
                         
-                        ax.grid(True, linestyle='--', alpha=0.5)  # 그리드 스타일 개선
+                        # 그리드 스타일 개선 및 축 레이블 추가
+                        ax.grid(True, linestyle='--', alpha=0.5)
+                        ax.set_xlabel('X 차원', fontsize=10)
+                        ax.set_ylabel('Y 차원', fontsize=10)
+                        ax.set_zlabel('Z 차원', fontsize=10)
+                        
                         plt.tight_layout()
                         plt.savefig(clusters3d_path, bbox_inches='tight', dpi=dpi)
                         plt.close()
                         
-                        # 2D 투영 시각화 추가 (X-Y 평면) - 더 쉽게 구분 가능
-                        plt.figure(figsize=(10, 8), dpi=dpi)
-                        
-                        # 색상 설정은 3D와 동일하게 유지
-                        for i in range(final_n_clusters):
-                            indices = final_labels == i
-                            plt.scatter(tsne_results_3d[indices, 0], 
-                                       tsne_results_3d[indices, 1],
-                                       c=[colors_3d[i]],
-                                       label=f'클러스터 {i+1}',
-                                       s=50, alpha=0.8,
-                                       edgecolors='w')
-                            
-                            # 클러스터 중심 계산
-                            if np.sum(indices) > 0:
-                                center_x = np.mean(tsne_results_3d[indices, 0])
-                                center_y = np.mean(tsne_results_3d[indices, 1])
+                        # 인터랙티브 3D 시각화 추가 (plotly 사용)
+                        if 'PLOTLY_AVAILABLE' in globals() and PLOTLY_AVAILABLE:
+                            try:
+                                # 인터랙티브 파일 경로
+                                interactive_3d_path = os.path.join(STATIC_DIR, f'interactive_3d_{unique_filename}.html')
                                 
-                                # 키워드 표시
-                                if len(cluster_keywords[i]) > 0:
-                                    keyword_text = f"#{i+1}: {', '.join(cluster_keywords[i][:3])}"
-                                    plt.annotate(keyword_text, 
-                                                (center_x, center_y),
-                                                fontsize=9,
-                                                bbox=dict(facecolor='white', alpha=0.7, boxstyle='round'),
-                                                ha='center', va='center')
-                        
-                        plt.title('키워드 군집 2D 투영 시각화 (X-Y 평면)', fontsize=14)
-                        plt.xlabel('X 차원', fontsize=12)
-                        plt.ylabel('Y 차원', fontsize=12)
-                        plt.legend(fontsize=9, title="클러스터 구분")
-                        plt.grid(True, linestyle='--', alpha=0.5)
-                        plt.tight_layout()
-                        plt.savefig(clusters2d_path, bbox_inches='tight', dpi=dpi)
-                        plt.close()
-                        
-                        # 명시적 메모리 정리
-                        del tsne_results_3d, final_labels
-                        gc.collect()
-                        
-                        # 파일 생성 확인
-                        if os.path.exists(clusters3d_path):
-                            logger.info(f"3D 시각화 이미지 생성 완료: {clusters3d_path}")
-                            results['clusters3d_path'] = f'/static/clusters3d_{unique_filename}.png'
+                                # 클러스터별 데이터 구성
+                                fig_plotly = go.Figure()
+                                
+                                for i in range(final_n_clusters):
+                                    indices = final_labels == i
+                                    cluster_points = tsne_results_3d[indices]
+                                    
+                                    if len(cluster_points) > 0:
+                                        cluster_name = f'클러스터 {i+1}: {", ".join(cluster_keywords[i][:3])}'
+                                        
+                                        # RGB 색상 변환
+                                        r = int(colors_3d[i][0]*255)
+                                        g = int(colors_3d[i][1]*255)
+                                        b = int(colors_3d[i][2]*255)
+                                        
+                                        fig_plotly.add_trace(go.Scatter3d(
+                                            x=cluster_points[:, 0],
+                                            y=cluster_points[:, 1],
+                                            z=cluster_points[:, 2],
+                                            mode='markers',
+                                            marker=dict(
+                                                size=5,
+                                                color=f'rgba({int(colors_3d[i][0]*255)}, {int(colors_3d[i][1]*255)}, {int(colors_3d[i][2]*255)}, 0.8)',
+                                                line=dict(width=0.5, color='white')
+                                            ),
+                                            name=cluster_name,
+                                            hovertemplate='<b>%{text}</b>',
+                                            text=[cluster_name] * len(cluster_points)
+                                        ))
+                                
+                                # 레이아웃 설정
+                                fig_plotly.update_layout(
+                                    title='키워드 군집 인터랙티브 3D 시각화 (확대/축소 및 회전 가능)',
+                                    scene=dict(
+                                        xaxis_title='X 차원',
+                                        yaxis_title='Y 차원',
+                                        zaxis_title='Z 차원',
+                                    ),
+                                    legend=dict(
+                                        x=0,
+                                        y=1,
+                                        bgcolor='rgba(255, 255, 255, 0.7)',
+                                        bordercolor='gray',
+                                        borderwidth=1
+                                    ),
+                                    margin=dict(l=0, r=0, b=0, t=40)
+                                )
+                                
+                                # HTML 저장
+                                plot(fig_plotly, filename=interactive_3d_path, auto_open=False)
+                                
+                                # 저장된 파일 확인
+                                if os.path.exists(interactive_3d_path):
+                                    logger.info(f"인터랙티브 3D 시각화 파일 생성 완료: {interactive_3d_path}")
+                                    results['interactive_3d_path'] = f'/static/interactive_3d_{unique_filename}.html'
+                                else:
+                                    logger.warning("인터랙티브 3D 시각화 파일 생성 실패")
+                                    results['interactive_3d_path'] = ''
+                            except Exception as plotly_error:
+                                logger.error(f"인터랙티브 3D 시각화 생성 오류: {plotly_error}")
+                                logger.error(traceback.format_exc())
+                                results['interactive_3d_path'] = ''
                         else:
-                            logger.warning("3D 시각화 이미지 생성 실패")
-                            results['clusters3d_path'] = ''
-                            
-                        # 2D 시각화 결과 추가
-                        if os.path.exists(clusters2d_path):
-                            logger.info(f"2D 시각화 이미지 생성 완료: {clusters2d_path}")
-                            results['clusters2d_path'] = f'/static/clusters2d_{unique_filename}.png'
-                        else:
-                            logger.warning("2D 시각화 이미지 생성 실패")
-                            results['clusters2d_path'] = ''
+                            logger.info("plotly 모듈이 설치되지 않아 인터랙티브 3D 시각화를 생성하지 않습니다.")
+                            results['interactive_3d_path'] = ''
                     else:
                         logger.warning("3D 시각화를 위한 충분한 데이터가 없습니다.")
                         results['clusters3d_path'] = ''
