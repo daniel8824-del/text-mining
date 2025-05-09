@@ -1,5 +1,6 @@
 import sys
 import os
+import asyncio
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -972,9 +973,8 @@ async def analyze_text(
 @app.post("/download_csv")
 async def download_csv(data: List[dict]):
     try:
-        # 임시 파일 생성
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmp_file:
-            temp_path = tmp_file.name
+        # 임시 파일 경로를 애플리케이션 폴더 내에 생성
+        temp_path = os.path.join(STATIC_DIR, f"temp_csv_{uuid.uuid4()}.csv")
             
         # CSV 파일 생성
         df = pd.DataFrame(data)
@@ -983,6 +983,8 @@ async def download_csv(data: List[dict]):
         # 백그라운드 작업으로 파일 삭제하는 함수 - 비동기 함수로 변경
         async def remove_file():
             try:
+                # 잠시 대기 후 파일 삭제 (다운로드 완료 시간 고려)
+                await asyncio.sleep(30)
                 if os.path.exists(temp_path):
                     os.remove(temp_path)
             except Exception as e:
@@ -996,13 +998,18 @@ async def download_csv(data: List[dict]):
             background=remove_file
         )
     except Exception as e:
+        print(f"CSV 다운로드 중 오류 발생: {str(e)}")
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"CSV 파일 생성 중 오류: {str(e)}")
 
 @app.post("/download_pdf")
 async def download_zip(html_content: str = Form(...)):
     try:
-        # 임시 폴더 생성
-        temp_dir = tempfile.mkdtemp()
+        # 임시 폴더 생성 (애플리케이션 폴더 내에)
+        temp_dir_name = f"temp_zip_{uuid.uuid4()}"
+        temp_dir = os.path.join(STATIC_DIR, temp_dir_name)
+        os.makedirs(temp_dir, exist_ok=True)
+        
         zip_path = os.path.join(temp_dir, "텍스트_분석_결과.zip")
         
         # HTML 파일에 필요한 스타일과 스크립트 추가
@@ -1147,6 +1154,8 @@ async def download_zip(html_content: str = Form(...)):
         # 백그라운드 작업으로 임시 폴더 삭제하는 함수 - 비동기 함수로 변경
         async def remove_temp_dir():
             try:
+                # 잠시 대기 후 파일 삭제 (다운로드 완료 시간 고려)
+                await asyncio.sleep(30)
                 if os.path.exists(temp_dir):
                     shutil.rmtree(temp_dir)
             except Exception as e:
@@ -1160,6 +1169,8 @@ async def download_zip(html_content: str = Form(...)):
             background=remove_temp_dir
         )
     except Exception as e:
+        print(f"ZIP 다운로드 중 오류 발생: {str(e)}")
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"ZIP 파일 생성 중 오류: {str(e)}")
 
 if __name__ == "__main__":
