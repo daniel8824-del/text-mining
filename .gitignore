@@ -40,4 +40,36 @@ data/uploads/
 .env.production.local
 *.db
 *.sqlite
-*.log 
+*.log
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 환경 설정 파일
+.env
+.venv
+env/
+venv/
+ENV/
+
+# 개발용 로그와 임시 파일
+*.log
+*.csv
+*.pkl
+
+# AWS 배포 관련 파일
+aws_deploy/
+.elasticbeanstalk/
+.ebextensions/
+.ebignore
+
+# 로컬 테스트 데이터
+test_data/
+
+# 추가 임시 파일
+temp/
+tmp/
+.DS_Store
+Thumbs.db 
