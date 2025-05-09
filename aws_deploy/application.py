@@ -1382,43 +1382,67 @@ async def analyze_text(
                                 
                                 # 클러스터 중심에 키워드 표시
                                 if len(cluster_keywords[i]) > 0:
-                                    keyword_text = f"#{i+1}: {', '.join(cluster_keywords[i][:3])}"
-                                    # 3D 시각화를 위한 텍스트 오프셋 설정
-                                    text_offset_x = center_x + (i * 20)  # x 방향 오프셋
-                                    text_offset_y = center_y + (i * 25)  # y 방향 오프셋
-                                    text_offset_z = center_z + (i * 30)  # z 방향 오프셋 (더 크게)
+                                    # 키워드 텍스트 길이 제한 (너무 길면 잘림)
+                                    keywords_text = ', '.join(cluster_keywords[i][:3])
+                                    if len(keywords_text) > 30:  # 최대 30자로 제한
+                                        keywords_text = keywords_text[:27] + "..."
+                                        
+                                    keyword_text = f"#{i+1}: {keywords_text}"
                                     
-                                    # 텍스트 박스 스타일 개선
+                                    # 클러스터 간 오프셋을 더 크게 설정하여 겹치지 않도록 함
+                                    text_offset_x = center_x + (i * 30)  # x 방향 오프셋 증가 (20→30)
+                                    text_offset_y = center_y + (i * 40)  # y 방향 오프셋 증가 (25→40)
+                                    text_offset_z = center_z + (i * 40)  # z 방향 오프셋 증가 (30→40)
+                                    
+                                    # 텍스트 박스 스타일 개선 - 패딩 추가 및 투명도 증가
                                     text_obj = ax.text(text_offset_x, text_offset_y, text_offset_z, keyword_text, 
-                                            fontsize=10, ha='center', va='center',
-                                            bbox=dict(facecolor='white', alpha=0.95, boxstyle='round,pad=0.7',
+                                            fontsize=11,  # 폰트 크기 증가 (10→11)
+                                            ha='center', va='center',
+                                            bbox=dict(facecolor='white', alpha=0.98, boxstyle='round,pad=0.8',
                                                      edgecolor='gray', linewidth=1.5))
                                     
-                                    # 클러스터 중심과 텍스트 박스 연결선 추가 (점선)
+                                    # 클러스터 중심과 텍스트 박스 연결선 추가 (점선) - 더 뚜렷하게
                                     ax.plot([center_x, text_offset_x], [center_y, text_offset_y], [center_z, text_offset_z], 
-                                           'gray', linestyle='--', linewidth=1.2, alpha=0.7)
+                                           'gray', linestyle='--', linewidth=1.3, alpha=0.8)
                         
-                        ax.set_title('키워드 군집 3D 시각화', fontsize=14)
+                        ax.set_title('키워드 군집 3D 시각화', fontsize=15)  # 제목 폰트 크기 증가
                         ax.view_init(30, 45)  # 시각화 각도 조정
                         
                         # 범례 추가 - 모든 클러스터 표시
-                        ax.legend(fontsize=9, title="클러스터 구분", loc='upper right')
+                        ax.legend(fontsize=10, title="클러스터 구분", loc='upper right')
                         
                         # 그리드 스타일 개선 및 축 레이블 추가
                         ax.grid(True, linestyle='--', alpha=0.5)
-                        ax.set_xlabel('X 차원', fontsize=10)
-                        ax.set_ylabel('Y 차원', fontsize=10)
-                        ax.set_zlabel('Z 차원', fontsize=10)
+                        ax.set_xlabel('X 차원', fontsize=12)
+                        ax.set_ylabel('Y 차원', fontsize=12)
+                        ax.set_zlabel('Z 차원', fontsize=12)
                         
-                        plt.tight_layout()
-                        plt.savefig(clusters3d_path, bbox_inches='tight', dpi=dpi)
-                        plt.close()
+                        # 테두리 여백 추가
+                        plt.tight_layout(pad=2.5)
+                        
+                        # 이미지 저장 - bbox_inches='tight'로 모든 요소가 포함되도록 함
+                        try:
+                            # 고해상도 저장 (dpi 증가)
+                            plt.savefig(clusters3d_path, bbox_inches='tight', dpi=dpi)
+                            plt.close(fig)  # 명시적으로 그림 객체 닫기
+                            
+                            # 저장 확인
+                            if os.path.exists(clusters3d_path):
+                                logger.info(f"3D 시각화 이미지 저장 성공: {clusters3d_path}")
+                                results['clusters3d_path'] = f'/static/clusters3d_{unique_filename}.png'
+                            else:
+                                logger.warning(f"3D 시각화 이미지가 생성되지 않음: {clusters3d_path}")
+                                results['clusters3d_path'] = ''
+                        except Exception as save_error:
+                            logger.error(f"3D 시각화 저장 중 오류: {save_error}")
+                            logger.error(traceback.format_exc())
+                            results['clusters3d_path'] = ''
                         
                         # 인터랙티브 3D 시각화 추가 (plotly 사용)
                         if 'PLOTLY_AVAILABLE' in globals() and PLOTLY_AVAILABLE:
                             try:
-                                # 인터랙티브 파일 경로
-                                interactive_3d_path = os.path.join(STATIC_DIR, f'interactive_3d_{unique_filename}.html')
+                                # 인터랙티브 파일 경로 - 한글 파일명으로 저장
+                                interactive_3d_path = os.path.join(STATIC_DIR, f'인터랙티브_3D_시각화_{unique_filename}.html')
                                 
                                 # 클러스터별 데이터 구성
                                 fig_plotly = go.Figure()
@@ -1428,7 +1452,12 @@ async def analyze_text(
                                     cluster_points = tsne_results_3d[indices]
                                     
                                     if len(cluster_points) > 0:
-                                        cluster_name = f'클러스터 {i+1}: {", ".join(cluster_keywords[i][:3])}'
+                                        # 키워드 텍스트 길이 제한
+                                        keywords_str = ", ".join(cluster_keywords[i][:3])
+                                        if len(keywords_str) > 30:  # 최대 30자로 제한
+                                            keywords_str = keywords_str[:27] + "..."
+                                            
+                                        cluster_name = f'클러스터 {i+1}: {keywords_str}'
                                         
                                         # RGB 색상 변환
                                         r = int(colors_3d[i][0]*255)
@@ -1441,40 +1470,56 @@ async def analyze_text(
                                             z=cluster_points[:, 2],
                                             mode='markers',
                                             marker=dict(
-                                                size=5,
-                                                color=f'rgba({int(colors_3d[i][0]*255)}, {int(colors_3d[i][1]*255)}, {int(colors_3d[i][2]*255)}, 0.8)',
-                                                line=dict(width=0.5, color='white')
+                                                size=6,  # 마커 크기 증가
+                                                color=f'rgba({r}, {g}, {b}, 0.8)',
+                                                line=dict(width=0.7, color='white')  # 테두리 두께 증가
                                             ),
                                             name=cluster_name,
                                             hovertemplate='<b>%{text}</b>',
                                             text=[cluster_name] * len(cluster_points)
                                         ))
                                 
-                                # 레이아웃 설정
+                                # 레이아웃 설정 - 여백 및 글자 크기 조정
                                 fig_plotly.update_layout(
-                                    title='키워드 군집 인터랙티브 3D 시각화 (확대/축소 및 회전 가능)',
+                                    title={
+                                        'text': '키워드 군집 인터랙티브 3D 시각화 (확대/축소/회전 가능)',
+                                        'font': {'size': 18, 'family': 'Arial, sans-serif'},
+                                        'y': 0.95,
+                                        'x': 0.5,
+                                        'xanchor': 'center',
+                                        'yanchor': 'top'
+                                    },
                                     scene=dict(
-                                        xaxis_title='X 차원',
-                                        yaxis_title='Y 차원',
-                                        zaxis_title='Z 차원',
+                                        xaxis_title={'text': 'X 차원', 'font': {'size': 14}},
+                                        yaxis_title={'text': 'Y 차원', 'font': {'size': 14}},
+                                        zaxis_title={'text': 'Z 차원', 'font': {'size': 14}},
+                                        # 축 범위 자동 조정이 아닌 명시적 설정 (잘림 방지)
+                                        aspectratio={'x': 1, 'y': 1, 'z': 1}
                                     ),
                                     legend=dict(
+                                        font=dict(size=12),
                                         x=0,
                                         y=1,
-                                        bgcolor='rgba(255, 255, 255, 0.7)',
+                                        bgcolor='rgba(255, 255, 255, 0.8)',
                                         bordercolor='gray',
                                         borderwidth=1
                                     ),
-                                    margin=dict(l=0, r=0, b=0, t=40)
+                                    # 여백 크게 설정 (텍스트 잘림 방지)
+                                    margin=dict(l=10, r=10, b=10, t=60, pad=10),
+                                    autosize=True,
+                                    width=900,
+                                    height=700
                                 )
                                 
-                                # HTML 저장
-                                plot(fig_plotly, filename=interactive_3d_path, auto_open=False)
+                                # HTML 저장 - 독립 실행형으로 저장 (CDN 대신 전체 plotly.js 포함)
+                                plot(fig_plotly, filename=interactive_3d_path, auto_open=False, include_plotlyjs=True)
                                 
                                 # 저장된 파일 확인
                                 if os.path.exists(interactive_3d_path):
                                     logger.info(f"인터랙티브 3D 시각화 파일 생성 완료: {interactive_3d_path}")
-                                    results['interactive_3d_path'] = f'/static/interactive_3d_{unique_filename}.html'
+                                    # 한글 파일명으로 URL 경로 저장
+                                    interactive_filename = os.path.basename(interactive_3d_path)
+                                    results['interactive_3d_path'] = f'/static/{interactive_filename}'
                                 else:
                                     logger.warning("인터랙티브 3D 시각화 파일 생성 실패")
                                     results['interactive_3d_path'] = ''
@@ -1702,20 +1747,43 @@ async def download_zip(html_content: str = Form(...)):
         img_paths = re.findall(r'src="(/static/[^"]+)"', enhanced_html)
         logger.info(f"발견된 이미지 파일 수: {len(img_paths)}")
         
-        for img_path in img_paths:
+        # iframe에서 참조하는 인터랙티브 HTML 파일 추출
+        iframe_paths = re.findall(r'<iframe\s+src="(/static/[^"]+\.html)"', enhanced_html)
+        logger.info(f"발견된 인터랙티브 HTML 파일 수: {len(iframe_paths)}")
+        
+        # 모든 참조 파일 목록 (이미지 + HTML)
+        all_reference_files = img_paths + iframe_paths
+        
+        # iframe의 새창 열기 링크 제거 (ZIP 파일에서는 필요 없음)
+        iframe_link_pattern = r'<a\s+href="(/static/[^"]+\.html)"\s+target="_blank"\s+class="btn\s+btn-primary[^>]*>[^<]*</a>'
+        enhanced_html = re.sub(iframe_link_pattern, '', enhanced_html)
+        
+        # 관련 설명 텍스트도 제거
+        explanation_pattern = r'<p\s+class="text-muted\s+mt-2\s+small">\s*<i\s+class="fas\s+fa-info-circle[^>]*></i>[^<]*</p>'
+        enhanced_html = re.sub(explanation_pattern, '', enhanced_html)
+        
+        # 전체 div 컨테이너도 제거 (p-3 text-center)
+        div_container_pattern = r'<div\s+class="p-3\s+text-center">\s*</div>'
+        enhanced_html = re.sub(div_container_pattern, '', enhanced_html)
+        
+        for file_path in all_reference_files:
             # 상대 경로를 절대 경로로 변환
-            full_path = os.path.join(BASE_DIR, img_path.lstrip('/'))
+            full_path = os.path.join(BASE_DIR, file_path.lstrip('/'))
             # 대상 경로
-            target_path = os.path.join(temp_dir, os.path.basename(img_path))
+            target_path = os.path.join(temp_dir, os.path.basename(file_path))
             # 파일 복사
             if os.path.exists(full_path):
                 shutil.copy2(full_path, target_path)
-                logger.info(f"이미지 파일 복사: {full_path} → {target_path}")
+                logger.info(f"참조 파일 복사: {full_path} → {target_path}")
                 
-                # HTML 파일 내 이미지 경로 수정
+                # HTML 파일 내 경로 수정
                 enhanced_html = enhanced_html.replace(
-                    f'src="{img_path}"', 
-                    f'src="{os.path.basename(img_path)}"'
+                    f'src="{file_path}"', 
+                    f'src="{os.path.basename(file_path)}"'
+                )
+                enhanced_html = enhanced_html.replace(
+                    f'href="{file_path}"', 
+                    f'href="{os.path.basename(file_path)}"'
                 )
         
         # 수정된 HTML 다시 저장
@@ -1727,11 +1795,13 @@ async def download_zip(html_content: str = Form(...)):
             # HTML 파일 추가
             zip_file.write(html_path, "분석_결과.html")
             
-            # 이미지 파일 추가
-            for img_path in img_paths:
-                full_path = os.path.join(BASE_DIR, img_path.lstrip('/'))
+            # 참조 파일 추가 (이미지 + 인터랙티브 HTML)
+            for file_path in all_reference_files:
+                full_path = os.path.join(BASE_DIR, file_path.lstrip('/'))
                 if os.path.exists(full_path):
-                    zip_file.write(full_path, os.path.basename(img_path))
+                    # 한글 파일명이 들어있는 경우 처리
+                    basename = os.path.basename(full_path)
+                    zip_file.write(full_path, basename)
         
         logger.info(f"ZIP 파일 생성 완료: {zip_path}")
         
