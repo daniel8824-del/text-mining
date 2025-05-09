@@ -23,6 +23,10 @@ import json
 import traceback
 import numpy as np
 import networkx as nx
+from sklearn.cluster import KMeans, SpectralClustering
+from sklearn.manifold import TSNE
+import mpl_toolkits.mplot3d as plt3d
+from matplotlib.colors import ListedColormap
 
 # 한글 폰트 설정 (matplotlib)
 import matplotlib
@@ -551,6 +555,199 @@ async def analyze_text(
             print(f"중심성 분석 오류: {centrality_error}")
             print(traceback.format_exc())
             results['centrality_path'] = ''
+        
+        # 11. 클러스터링 분석 (고급 분석 탭)
+        try:
+            if len(analyzer.tf_idf_matrix) > 5:  # 충분한 데이터가 있는지 확인
+                # 1) 클러스터링 시각화
+                # TF-IDF 행렬을 2D로 차원 축소
+                tsne = TSNE(n_components=2, random_state=42, perplexity=min(30, len(analyzer.tf_idf_matrix)-1))
+                tsne_results = tsne.fit_transform(analyzer.tf_idf_matrix.toarray())
+                
+                # 클러스터링 수행 (K-means)
+                num_clusters = min(5, len(analyzer.tf_idf_matrix))  # 최대 5개 클러스터
+                kmeans = KMeans(n_clusters=num_clusters, random_state=42)
+                cluster_labels = kmeans.fit_predict(analyzer.tf_idf_matrix.toarray())
+                
+                # 클러스터링 결과 시각화
+                clustering_path = os.path.join(STATIC_DIR, f'clustering_{unique_filename}.png')
+                plt.figure(figsize=(12, 8))
+                
+                colors = plt.cm.tab10(np.linspace(0, 1, num_clusters))
+                for i in range(num_clusters):
+                    # 해당 클러스터에 속한 점 찾기
+                    cluster_points = tsne_results[cluster_labels == i]
+                    plt.scatter(
+                        cluster_points[:, 0], 
+                        cluster_points[:, 1], 
+                        s=100, 
+                        c=[colors[i]], 
+                        label=f'클러스터 {i+1}'
+                    )
+                
+                # 중심점 표시
+                centers = kmeans.cluster_centers_
+                centers_2d = tsne.fit_transform(centers)
+                plt.scatter(
+                    centers_2d[:, 0], 
+                    centers_2d[:, 1], 
+                    s=200, 
+                    c='black', 
+                    alpha=0.5, 
+                    marker='X'
+                )
+                
+                plt.title('키워드 클러스터 분석', fontsize=16)
+                plt.legend(fontsize=12)
+                plt.grid(True, linestyle='--', alpha=0.7)
+                plt.tight_layout()
+                plt.savefig(clustering_path, bbox_inches='tight')
+                plt.close()
+                
+                if os.path.exists(clustering_path):
+                    results['clustering_path'] = f'/static/clustering_{unique_filename}.png'
+                else:
+                    results['clustering_path'] = ''
+                
+                # 클러스터 정보 생성
+                community_info = []
+                for i in range(num_clusters):
+                    # 이 클러스터에 속한 문서 인덱스 찾기
+                    cluster_docs = np.where(cluster_labels == i)[0]
+                    
+                    # 클러스터의 키워드 빈도 계산
+                    cluster_word_freq = {}
+                    for doc_idx in cluster_docs:
+                        if doc_idx < len(analyzer.tokenized_corpus):
+                            for word in analyzer.tokenized_corpus[doc_idx]:
+                                if word in cluster_word_freq:
+                                    cluster_word_freq[word] += 1
+                                else:
+                                    cluster_word_freq[word] = 1
+                    
+                    # 상위 키워드 추출
+                    top_words = sorted(cluster_word_freq.items(), key=lambda x: x[1], reverse=True)[:5]
+                    
+                    community_info.append({
+                        'id': i + 1,
+                        'size': len(cluster_docs),
+                        'top_words': [{'word': word, 'freq': freq} for word, freq in top_words]
+                    })
+                
+                results['community_info'] = community_info
+                
+                # 2) 키워드 영향력 버블 차트
+                bubble_path = os.path.join(STATIC_DIR, f'bubble_{unique_filename}.png')
+                plt.figure(figsize=(12, 8))
+                
+                # 상위 30개 키워드 대상으로 버블 차트 생성
+                top_words = analyzer.word_freq.most_common(30)
+                word_list, freq_list = zip(*top_words)
+                
+                # 키워드 중요도 점수 계산 (TF-IDF 점수 평균)
+                importance_scores = []
+                for word in word_list:
+                    if word in analyzer.tf_idf_feature_names:
+                        idx = list(analyzer.tf_idf_feature_names).index(word)
+                        score = np.mean(analyzer.tf_idf_matrix[:, idx].toarray())
+                        importance_scores.append(score)
+                    else:
+                        importance_scores.append(0.01)  # 기본값
+                
+                # 버블 사이즈 계산
+                sizes = [f * 50 for f in freq_list]  # 빈도수에 비례
+                
+                # 색상 그라데이션 (중요도에 따라)
+                cmap = plt.cm.YlOrRd
+                norm = plt.Normalize(min(importance_scores), max(importance_scores))
+                colors = cmap(norm(importance_scores))
+                
+                # 버블 플롯 생성
+                scatter = plt.scatter(
+                    range(len(word_list)), 
+                    importance_scores, 
+                    s=sizes, 
+                    c=colors, 
+                    alpha=0.7, 
+                    edgecolors='gray'
+                )
+                
+                # 키워드 레이블 추가
+                for i, word in enumerate(word_list):
+                    plt.annotate(
+                        word, 
+                        (i, importance_scores[i]),
+                        xytext=(0, 5),
+                        textcoords='offset points',
+                        ha='center', 
+                        fontsize=9
+                    )
+                
+                plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), label='중요도 점수')
+                plt.title('키워드 영향력 버블 차트', fontsize=16)
+                plt.xlabel('키워드', fontsize=12)
+                plt.ylabel('중요도 점수', fontsize=12)
+                plt.xticks(range(len(word_list)), word_list, rotation=90)
+                plt.grid(True, linestyle='--', alpha=0.7)
+                plt.tight_layout()
+                plt.savefig(bubble_path, bbox_inches='tight')
+                plt.close()
+                
+                if os.path.exists(bubble_path):
+                    results['bubble_path'] = f'/static/bubble_{unique_filename}.png'
+                else:
+                    results['bubble_path'] = ''
+                
+                # 3) 키워드 군집 3D 시각화
+                clusters3d_path = os.path.join(STATIC_DIR, f'clusters3d_{unique_filename}.png')
+                
+                # 3D 차원 축소 (TSNE)
+                tsne_3d = TSNE(n_components=3, random_state=42, perplexity=min(30, len(analyzer.tf_idf_matrix)-1))
+                tsne_results_3d = tsne_3d.fit_transform(analyzer.tf_idf_matrix.toarray())
+                
+                # 군집화 (Spectral Clustering)
+                spectral = SpectralClustering(n_clusters=min(4, len(analyzer.tf_idf_matrix)), random_state=42, assign_labels='discretize')
+                spectral_labels = spectral.fit_predict(analyzer.tf_idf_matrix.toarray())
+                
+                # 3D 시각화
+                fig = plt.figure(figsize=(12, 10))
+                ax = fig.add_subplot(111, projection='3d')
+                
+                # 색상 생성
+                colors_3d = plt.cm.jet(np.linspace(0, 1, len(np.unique(spectral_labels))))
+                
+                # 각 클러스터 그리기
+                for i, label in enumerate(np.unique(spectral_labels)):
+                    indices = spectral_labels == label
+                    xs = tsne_results_3d[indices, 0]
+                    ys = tsne_results_3d[indices, 1]
+                    zs = tsne_results_3d[indices, 2]
+                    ax.scatter(xs, ys, zs, c=[colors_3d[i]], label=f'클러스터 {i+1}', s=50, alpha=0.8)
+                
+                ax.set_title('키워드 군집 3D 시각화', fontsize=16)
+                ax.view_init(35, 45)  # 시각화 각도 조정
+                ax.legend()
+                ax.grid(True)
+                plt.tight_layout()
+                plt.savefig(clusters3d_path, bbox_inches='tight', dpi=150)
+                plt.close()
+                
+                if os.path.exists(clusters3d_path):
+                    results['clusters3d_path'] = f'/static/clusters3d_{unique_filename}.png'
+                else:
+                    results['clusters3d_path'] = ''
+            else:
+                results['clustering_path'] = ''
+                results['bubble_path'] = ''
+                results['clusters3d_path'] = ''
+                results['community_info'] = []
+        except Exception as advanced_analysis_error:
+            print(f"고급 분석 오류: {advanced_analysis_error}")
+            print(traceback.format_exc())
+            results['clustering_path'] = ''
+            results['bubble_path'] = ''
+            results['clusters3d_path'] = ''
+            results['community_info'] = []
         
         # 파일 처리 완료 후 삭제 (선택적)
         if os.path.exists(file_path):

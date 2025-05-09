@@ -5,162 +5,489 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>텍스트 마이닝 분석</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        .result-section {
-            margin-top: 2rem;
-            padding: 1rem;
-            border: 1px solid #dee2e6;
-            border-radius: 0.25rem;
+        :root {
+            --primary: #4361ee;
+            --primary-light: #4895ef;
+            --secondary: #3f37c9;
+            --success: #4cc9f0;
+            --dark: #2b2d42;
+            --light: #f8f9fa;
+            --gray: #e9ecef;
+            --border-radius: 0.5rem;
+            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
         }
-
+        
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f8f9fa;
+            color: var(--dark);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            padding: 0 15px;
+        }
+        
+        .header-container {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 2rem 0;
+            border-radius: 0 0 var(--border-radius) var(--border-radius);
+            box-shadow: var(--card-shadow);
+            margin-bottom: 2rem;
+        }
+        
+        .bg-primary-gradient {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        }
+        
+        .header-title {
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .header-subtitle {
+            font-weight: 300;
+            opacity: 0.9;
+        }
+        
+        .card {
+            border: none;
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+            transition: var(--transition);
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card-header {
+            background-color: var(--primary);
+            color: white;
+            font-weight: 500;
+            border: none;
+            padding: 1rem 1.5rem;
+        }
+        
+        .card-body {
+            padding: 1.5rem;
+        }
+        
+        .form-control, .form-select {
+            border-radius: var(--border-radius);
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--gray);
+            transition: var(--transition);
+        }
+        
+        .form-control:focus, .form-select:focus {
+            box-shadow: 0 0 0 0.25rem rgba(67, 97, 238, 0.25);
+            border-color: var(--primary-light);
+        }
+        
+        .form-label {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: var(--dark);
+        }
+        
+        .btn {
+            border-radius: var(--border-radius);
+            padding: 0.75rem 1.5rem;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--secondary);
+            border-color: var(--secondary);
+        }
+        
+        .btn-success {
+            background-color: var(--success);
+            border-color: var(--success);
+        }
+        
+        .result-section {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+            margin-top: 2rem;
+            padding: 1.5rem;
+            transition: var(--transition);
+        }
+        
+        .result-section h3 {
+            color: var(--primary);
+            font-weight: 600;
+            border-bottom: 2px solid var(--gray);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+        
+        .result-section h3::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 60px;
+            height: 2px;
+            background-color: var(--primary);
+        }
+        
+        .table {
+            width: 100%;
+            margin-bottom: 1rem;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+        }
+        
+        .table thead th {
+            background-color: var(--primary);
+            color: white;
+            font-weight: 500;
+            border: none;
+        }
+        
+        .table-striped tbody tr:nth-of-type(odd) {
+            background-color: rgba(0, 0, 0, 0.02);
+        }
+        
         .loading {
             display: none;
             text-align: center;
             margin: 2rem 0;
         }
-
+        
+        .loading .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+        
         #results {
             display: none;
+        }
+        
+        .img-fluid {
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+            transition: var(--transition);
+        }
+        
+        .img-fluid:hover {
+            transform: scale(1.02);
+        }
+        
+        .nav-tabs {
+            border-bottom: 2px solid var(--gray);
+            margin-bottom: 1.5rem;
+        }
+        
+        .nav-tabs .nav-link {
+            border: none;
+            border-bottom: 2px solid transparent;
+            border-radius: 0;
+            padding: 0.75rem 1.5rem;
+            font-weight: 500;
+            color: var(--dark);
+            transition: var(--transition);
+        }
+        
+        .nav-tabs .nav-link:hover {
+            color: var(--primary);
+        }
+        
+        .nav-tabs .nav-link.active {
+            color: var(--primary);
+            background-color: transparent;
+            border-bottom: 2px solid var(--primary);
+        }
+        
+        .form-check-input:checked {
+            background-color: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animated {
+            animation: fadeIn 0.5s ease forwards;
+        }
+        
+        @media (max-width: 768px) {
+            .header-container {
+                padding: 1.5rem 0;
+            }
+            
+            .card-body, .result-section {
+                padding: 1rem;
+            }
         }
     </style>
 </head>
 
 <body>
-    <div class="container mt-5">
-        <h1 class="mb-4">텍스트 마이닝 분석</h1>
-
-        <form id="analysisForm" class="mb-4">
-            <div class="mb-3">
-                <label for="file" class="form-label">파일 업로드 (CSV)</label>
-                <input type="file" class="form-control" id="file" name="file" accept=".csv" required>
-            </div>
-
-            <div class="mb-3">
-                <label for="text_column" class="form-label">텍스트 컬럼명 (리뷰내용, 제목, 설명 등 분석하고 싶은 컬럼명 입력)</label>
-                <input type="text" class="form-control" id="text_column" name="text_column" required>
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label">품사 태깅 옵션</label>
-                <div class="form-check">
-                    {% for value, label in pos_options.items() %}
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="pos_tags" value="{{ value }}"
-                            id="pos_{{ value }}">
-                        <label class="form-check-label" for="pos_{{ value }}">
-                            {{ label }}
-                        </label>
+    <div class="header-container">
+        <div class="container">
+            <h1 class="header-title">텍스트 마이닝 분석</h1>
+            <p class="header-subtitle">CSV 데이터 기반 텍스트 분석 및 시각화 서비스</p>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-10 col-md-12 mx-auto">
+                <div class="card">
+                    <div class="card-header d-flex align-items-center">
+                        <i class="fas fa-file-upload me-2"></i> 분석 데이터 업로드
                     </div>
-                    {% endfor %}
+                    <div class="card-body">
+                        <form id="analysisForm" class="mb-4">
+                            <div class="mb-4">
+                                <label for="file" class="form-label">파일 업로드 (CSV)</label>
+                                <div class="input-group">
+                                    <input type="file" class="form-control" id="file" name="file" accept=".csv" required>
+                                    <span class="input-group-text"><i class="fas fa-file-csv"></i></span>
+                                </div>
+                                <div class="form-text">CSV 형식의 데이터 파일을 업로드하세요.</div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="text_column" class="form-label">텍스트 컬럼명</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="text_column" name="text_column" required placeholder="분석할 컬럼명 입력">
+                                    <span class="input-group-text"><i class="fas fa-font"></i></span>
+                                </div>
+                                <div class="form-text">리뷰내용, 제목, 설명 등 분석하고 싶은 컬럼명을 입력하세요.</div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label">품사 태깅 옵션</label>
+                                <div class="row g-3">
+                                    {% for value, label in pos_options.items() %}
+                                    <div class="col-lg-4 col-md-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="pos_tags" value="{{ value }}" id="pos_{{ value }}">
+                                            <label class="form-check-label" for="pos_{{ value }}">
+                                                {{ label }}
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="stopwords" class="form-label">불용어 설정 (쉼표로 구분)</label>
+                                <textarea class="form-control" id="stopwords" name="stopwords" rows="3" placeholder="예: 단어1,단어2,단어3"></textarea>
+                                <div class="form-text">분석에서 제외할 단어들을 쉼표로 구분하여 입력하세요.</div>
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-chart-bar me-2"></i> 분석 시작
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="loading animated">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-3">분석 중입니다...</p>
+                    <div class="progress mt-2" style="height: 10px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                    </div>
+                </div>
+                
+                <!-- 여기부터 결과 표시 부분 -->
+                <div id="results">
+                    <ul class="nav nav-tabs" id="resultTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="keywords-tab" data-bs-toggle="tab" data-bs-target="#keywords-content" type="button" role="tab" aria-controls="keywords-content" aria-selected="true">키워드 분석</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="topics-tab" data-bs-toggle="tab" data-bs-target="#topics-content" type="button" role="tab" aria-controls="topics-content" aria-selected="false">토픽 모델링</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="sentiment-tab" data-bs-toggle="tab" data-bs-target="#sentiment-content" type="button" role="tab" aria-controls="sentiment-content" aria-selected="false">감정 분석</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="network-tab" data-bs-toggle="tab" data-bs-target="#network-content" type="button" role="tab" aria-controls="network-content" aria-selected="false">네트워크 분석</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="advanced-tab" data-bs-toggle="tab" data-bs-target="#advanced-content" type="button" role="tab" aria-controls="advanced-content" aria-selected="false">고급 분석</button>
+                        </li>
+                    </ul>
+                    
+                    <div class="tab-content" id="resultTabsContent">
+                        <!-- 키워드 분석 탭 -->
+                        <div class="tab-pane fade show active animated" id="keywords-content" role="tabpanel" aria-labelledby="keywords-tab">
+                            <!-- 키워드 분석 결과 -->
+                            <div class="result-section">
+                                <h3><i class="fas fa-key me-2"></i>주요 키워드 (빈도수 기준)</h3>
+                                <div id="keywordResults"></div>
+                            </div>
+
+                            <!-- TF-IDF 분석 결과 -->
+                            <div class="result-section">
+                                <h3><i class="fas fa-sort-amount-down me-2"></i>TF-IDF 키워드</h3>
+                                <div id="tfidfResults"></div>
+                            </div>
+                            
+                            <!-- 워드클라우드 -->
+                            <div class="result-section">
+                                <h3><i class="fas fa-cloud me-2"></i>워드클라우드</h3>
+                                <div id="wordcloudResults" class="text-center"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- 토픽 모델링 탭 -->
+                        <div class="tab-pane fade animated" id="topics-content" role="tabpanel" aria-labelledby="topics-tab">
+                            <!-- 토픽 모델링 결과 -->
+                            <div class="result-section">
+                                <h3><i class="fas fa-layer-group me-2"></i>토픽 모델링 결과</h3>
+                                <div id="topicResults"></div>
+                            </div>
+                            
+                            <!-- 토픽 점유율 -->
+                            <div class="result-section">
+                                <h3><i class="fas fa-chart-pie me-2"></i>토픽 점유율 차트</h3>
+                                <div id="topicSharesResults" class="text-center"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- 감정 분석 탭 -->
+                        <div class="tab-pane fade animated" id="sentiment-content" role="tabpanel" aria-labelledby="sentiment-tab">
+                            <!-- 감정 분석 결과 -->
+                            <div class="result-section">
+                                <h3><i class="fas fa-smile me-2"></i>감정 분석 결과</h3>
+                                <div id="sentimentResults"></div>
+                            </div>
+                            
+                            <!-- 긍정/부정 워드클라우드 -->
+                            <div class="result-section">
+                                <h3><i class="fas fa-balance-scale me-2"></i>감정 분석 워드클라우드</h3>
+                                <div id="sentimentCloudResults" class="text-center"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- 네트워크 분석 탭 -->
+                        <div class="tab-pane fade animated" id="network-content" role="tabpanel" aria-labelledby="network-tab">
+                            <!-- 키워드 네트워크 -->
+                            <div class="result-section">
+                                <h3><i class="fas fa-project-diagram me-2"></i>키워드 네트워크 분석</h3>
+                                <div id="networkResults" class="text-center"></div>
+                            </div>
+                            
+                            <!-- 상관관계 히트맵 -->
+                            <div class="result-section">
+                                <h3><i class="fas fa-th me-2"></i>키워드 상관관계 히트맵</h3>
+                                <div id="heatmapResults" class="text-center"></div>
+                            </div>
+                            
+                            <!-- 중심성 분석 -->
+                            <div class="result-section">
+                                <h3><i class="fas fa-asterisk me-2"></i>키워드 중심성 분석</h3>
+                                <div id="centralityResults" class="text-center"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- 고급 분석 탭 -->
+                        <div class="tab-pane fade animated" id="advanced-content" role="tabpanel" aria-labelledby="advanced-tab">
+                            <!-- 클러스터링 분석 -->
+                            <div class="result-section">
+                                <h3><i class="fas fa-object-group me-2"></i>키워드 클러스터 분석</h3>
+                                <div id="clusteringResults" class="text-center"></div>
+                            </div>
+                            
+                            <!-- 키워드 영향력 버블 차트 -->
+                            <div class="result-section">
+                                <h3><i class="fas fa-chart-bubble me-2"></i>키워드 영향력 버블 차트</h3>
+                                <div id="bubbleChartResults" class="text-center"></div>
+                            </div>
+                            
+                            <!-- 키워드 군집 3D 시각화 -->
+                            <div class="result-section">
+                                <h3><i class="fas fa-cube me-2"></i>키워드 군집 3D 시각화</h3>
+                                <div id="clusters3dResults" class="text-center"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 다운로드 버튼들 -->
+                    <div class="d-flex justify-content-center gap-3 mt-4 mb-5">
+                        <button id="download-csv" class="btn btn-success" style="display: none;">
+                            <i class="fas fa-file-csv me-2"></i> CSV 다운로드
+                        </button>
+                        <button id="download-pdf" class="btn btn-danger" style="display: none;">
+                            <i class="fas fa-file-archive me-2"></i> 결과 및 이미지 다운로드(ZIP)
+                        </button>
+                    </div>
                 </div>
             </div>
-
-            <div class="mb-3">
-                <label for="stopwords" class="form-label">불용어 설정 (쉼표로 구분)</label>
-                <textarea class="form-control" id="stopwords" name="stopwords" rows="3"
-                    placeholder="예: 단어1,단어2,단어3"></textarea>
-            </div>
-
-            <button type="submit" class="btn btn-primary">분석 시작</button>
-        </form>
-
-        <div class="loading">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <p class="mt-2">분석 중입니다...</p>
-        </div>
-
-        <div id="results">
-            <!-- 키워드 분석 결과 -->
-            <div class="result-section">
-                <h3>주요 키워드 (빈도수 기준)</h3>
-                <div id="keywordResults"></div>
-            </div>
-
-            <!-- TF-IDF 분석 결과 -->
-            <div class="result-section">
-                <h3>TF-IDF 키워드</h3>
-                <div id="tfidfResults"></div>
-            </div>
-
-            <!-- 토픽 모델링 결과 -->
-            <div class="result-section">
-                <h3>토픽 모델링 결과</h3>
-                <div id="topicResults"></div>
-            </div>
-
-            <!-- 감정 분석 결과 -->
-            <div class="result-section">
-                <h3>감정 분석 결과</h3>
-                <div id="sentimentResults"></div>
-            </div>
-
-            <!-- 워드클라우드 -->
-            <div class="result-section">
-                <h3>워드클라우드</h3>
-                <div id="wordcloudResults"></div>
-            </div>
-
-            <!-- 키워드 네트워크 -->
-            <div class="result-section">
-                <h3>키워드 네트워크 분석</h3>
-                <div id="networkResults"></div>
-            </div>
-
-            <!-- 상관관계 히트맵 -->
-            <div class="result-section">
-                <h3>키워드 상관관계 히트맵</h3>
-                <div id="heatmapResults"></div>
-            </div>
-
-            <!-- 긍정/부정 워드클라우드 -->
-            <div class="result-section">
-                <h3>감정 분석 워드클라우드</h3>
-                <div id="sentimentCloudResults"></div>
-            </div>
-
-            <!-- 토픽 점유율 -->
-            <div class="result-section">
-                <h3>토픽 점유율 차트</h3>
-                <div id="topicSharesResults"></div>
-            </div>
-
-            <!-- 중심성 분석 -->
-            <div class="result-section">
-                <h3>키워드 중심성 분석</h3>
-                <div id="centralityResults"></div>
-            </div>
-
-            <!-- 클러스터링 분석 -->
-            <div class="result-section">
-                <h3>키워드 클러스터 분석</h3>
-                <div id="clusteringResults"></div>
-            </div>
-
-            <!-- 키워드 영향력 버블 차트 -->
-            <div class="result-section">
-                <h3>키워드 영향력 버블 차트</h3>
-                <div id="bubbleChartResults"></div>
-            </div>
-
-            <!-- 키워드 군집 3D 시각화 -->
-            <div class="result-section">
-                <h3>키워드 군집 3D 시각화</h3>
-                <div id="clusters3dResults"></div>
-            </div>
         </div>
     </div>
-
-    <!-- 다운로드 버튼들 -->
-    <div class="mb-4 text-center">
-        <button id="download-csv" class="btn btn-success me-2" style="display: none;">CSV 다운로드</button>
-        <button id="download-pdf" class="btn btn-danger me-2" style="display: none;">결과 및 이미지 다운로드(ZIP)</button>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <footer class="bg-dark text-white py-4 mt-5">
+        <div class="container text-center">
+            <p class="mb-1">텍스트 마이닝 분석 서비스</p>
+            <p class="small text-muted">Powered by Supabase Storage & Flask</p>
+        </div>
+    </footer>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // 페이지 로드 시 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('페이지가 로드되었습니다.');
+            
+            // 탭 초기화
+            const tabElements = document.querySelectorAll('button[data-bs-toggle="tab"]');
+            if (tabElements.length > 0) {
+                console.log('탭 요소를 발견했습니다:', tabElements.length);
+                
+                // 탭 기능 초기화
+                tabElements.forEach(tab => {
+                    tab.addEventListener('shown.bs.tab', (e) => {
+                        console.log('탭 전환:', e.target.id);
+                        const targetId = e.target.getAttribute('data-bs-target');
+                        const targetPane = document.querySelector(targetId);
+                        
+                        if (targetPane) {
+                            // 애니메이션 클래스 제거 후 다시 추가하여 애니메이션 재시작
+                            targetPane.classList.remove('animated');
+                            void targetPane.offsetWidth; // 강제 리플로우
+                            targetPane.classList.add('animated');
+                        }
+                    });
+                });
+            }
+        });
+
         document.getElementById('analysisForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -171,134 +498,236 @@
             try {
                 loading.style.display = 'block';
                 results.style.display = 'none';
+                
+                loading.scrollIntoView({ behavior: 'smooth' });
 
                 const response = await fetch('/analyze', {
                     method: 'POST',
                     body: formData
                 });
 
+                // 서버 응답 상태 확인
+                if (!response.ok) {
+                    throw new Error(`서버 응답 오류: ${response.status} ${response.statusText}`);
+                }
+
                 const data = await response.json();
+                
+                // 디버깅을 위해 받은 데이터를 콘솔에 출력
+                console.log('분석 결과 데이터:', data);
 
-                if (response.ok) {
-                    // 키워드 결과 표시
+                // 데이터 유효성 검사
+                if (!data) {
+                    throw new Error('서버로부터 유효한 데이터를 받지 못했습니다.');
+                }
+
+                // 키워드 결과 표시
+                if (data.keywords && data.keywords.length > 0) {
                     const keywordHtml = `
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>키워드</th>
-                                    <th>빈도수</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${data.keywords.map(k => `
-                                    <tr>
-                                        <td>${k.word}</td>
-                                        <td>${k.freq}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    `;
-                    document.getElementById('keywordResults').innerHTML = keywordHtml;
-
-                    // TF-IDF 결과 표시
-                    const tfidfHtml = `
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>키워드</th>
-                                    <th>TF-IDF 점수</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${data.tfidf_keywords.map(k => `
-                                    <tr>
-                                        <td>${k.word}</td>
-                                        <td>${k.score.toFixed(4)}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    `;
-                    document.getElementById('tfidfResults').innerHTML = tfidfHtml;
-
-                    // 토픽 모델링 결과 표시
-                    const topicHtml = data.topics.map(topic => `
-                        <div class="mb-3">
-                            <h4>토픽 ${topic.topic_id}</h4>
-                            <table class="table">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
                                 <thead>
                                     <tr>
                                         <th>키워드</th>
-                                        <th>가중치</th>
+                                        <th>빈도수</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${topic.words.map(w => `
+                                    ${data.keywords.map(k => `
                                         <tr>
-                                            <td>${w.word}</td>
-                                            <td>${w.score.toFixed(4)}</td>
+                                            <td><span class="fw-medium">${k.word}</span></td>
+                                            <td><span class="badge bg-primary rounded-pill">${k.freq}</span></td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
                             </table>
                         </div>
+                    `;
+                    document.getElementById('keywordResults').innerHTML = keywordHtml;
+                } else {
+                    document.getElementById('keywordResults').innerHTML = '<div class="alert alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>키워드 분석 결과가 없습니다.</div>';
+                }
+
+                // TF-IDF 결과 표시
+                if (data.tfidf_keywords && data.tfidf_keywords.length > 0) {
+                    const tfidfHtml = `
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>키워드</th>
+                                        <th>TF-IDF 점수</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.tfidf_keywords.map(k => `
+                                        <tr>
+                                            <td><span class="fw-medium">${k.word}</span></td>
+                                            <td><span class="badge bg-info rounded-pill">${k.score.toFixed(4)}</span></td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                    document.getElementById('tfidfResults').innerHTML = tfidfHtml;
+                } else {
+                    document.getElementById('tfidfResults').innerHTML = '<div class="alert alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>TF-IDF 분석 결과가 없습니다.</div>';
+                }
+
+                // 토픽 모델링 결과 표시
+                if (data.topics && data.topics.length > 0) {
+                    const topicHtml = data.topics.map((topic, index) => `
+                        <div class="mb-4 card">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0">토픽 ${topic.topic_id}</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>키워드</th>
+                                                <th>가중치</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${topic.words.map(w => `
+                                                <tr>
+                                                    <td><span class="fw-medium">${w.word}</span></td>
+                                                    <td><span class="badge bg-secondary rounded-pill">${w.score.toFixed(4)}</span></td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     `).join('');
                     document.getElementById('topicResults').innerHTML = topicHtml;
+                } else {
+                    document.getElementById('topicResults').innerHTML = '<div class="alert alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>토픽 모델링 결과가 없습니다.</div>';
+                }
 
-                    // 감정 분석 결과 표시
+                // 감정 분석 결과 표시
+                if (data.sentiment && (data.sentiment.positive || data.sentiment.negative || data.sentiment.neutral)) {
                     const total = data.sentiment.positive + data.sentiment.negative + data.sentiment.neutral;
                     const sentimentHtml = `
-                        <div class="row">
+                        <div class="row g-4">
                             <div class="col-md-4">
-                                <div class="card text-white bg-success">
-                                    <div class="card-body">
-                                        <h5 class="card-title">긍정</h5>
-                                        <p class="card-text">${data.sentiment.positive} (${((data.sentiment.positive / total) * 100).toFixed(1)}%)</p>
+                                <div class="card text-white h-100">
+                                    <div class="card-body bg-success rounded">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <h5 class="card-title"><i class="fas fa-smile me-2"></i> 긍정</h5>
+                                                <h2 class="display-6">${((data.sentiment.positive / total) * 100).toFixed(1)}%</h2>
+                                            </div>
+                                            <div class="fs-1">
+                                                <i class="fas fa-thumbs-up"></i>
+                                            </div>
+                                        </div>
+                                        <p class="card-text mt-2">텍스트 ${data.sentiment.positive}개</p>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <div class="card text-white bg-danger">
-                                    <div class="card-body">
-                                        <h5 class="card-title">부정</h5>
-                                        <p class="card-text">${data.sentiment.negative} (${((data.sentiment.negative / total) * 100).toFixed(1)}%)</p>
+                                <div class="card text-white h-100">
+                                    <div class="card-body bg-danger rounded">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <h5 class="card-title"><i class="fas fa-angry me-2"></i> 부정</h5>
+                                                <h2 class="display-6">${((data.sentiment.negative / total) * 100).toFixed(1)}%</h2>
+                                            </div>
+                                            <div class="fs-1">
+                                                <i class="fas fa-thumbs-down"></i>
+                                            </div>
+                                        </div>
+                                        <p class="card-text mt-2">텍스트 ${data.sentiment.negative}개</p>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <div class="card text-white bg-secondary">
-                                    <div class="card-body">
-                                        <h5 class="card-title">중립</h5>
-                                        <p class="card-text">${data.sentiment.neutral} (${((data.sentiment.neutral / total) * 100).toFixed(1)}%)</p>
+                                <div class="card text-white h-100">
+                                    <div class="card-body bg-secondary rounded">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <h5 class="card-title"><i class="fas fa-meh me-2"></i> 중립</h5>
+                                                <h2 class="display-6">${((data.sentiment.neutral / total) * 100).toFixed(1)}%</h2>
+                                            </div>
+                                            <div class="fs-1">
+                                                <i class="fas fa-minus"></i>
+                                            </div>
+                                        </div>
+                                        <p class="card-text mt-2">텍스트 ${data.sentiment.neutral}개</p>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <div class="progress" style="height: 30px;">
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: ${((data.sentiment.positive / total) * 100).toFixed(1)}%" 
+                                     aria-valuenow="${((data.sentiment.positive / total) * 100).toFixed(1)}" 
+                                     aria-valuemin="0" aria-valuemax="100">
+                                    긍정 ${((data.sentiment.positive / total) * 100).toFixed(1)}%
+                                </div>
+                                <div class="progress-bar bg-danger" role="progressbar" 
+                                     style="width: ${((data.sentiment.negative / total) * 100).toFixed(1)}%" 
+                                     aria-valuenow="${((data.sentiment.negative / total) * 100).toFixed(1)}" 
+                                     aria-valuemin="0" aria-valuemax="100">
+                                    부정 ${((data.sentiment.negative / total) * 100).toFixed(1)}%
+                                </div>
+                                <div class="progress-bar bg-secondary" role="progressbar" 
+                                     style="width: ${((data.sentiment.neutral / total) * 100).toFixed(1)}%" 
+                                     aria-valuenow="${((data.sentiment.neutral / total) * 100).toFixed(1)}" 
+                                     aria-valuemin="0" aria-valuemax="100">
+                                    중립 ${((data.sentiment.neutral / total) * 100).toFixed(1)}%
                                 </div>
                             </div>
                         </div>
                     `;
                     document.getElementById('sentimentResults').innerHTML = sentimentHtml;
+                } else {
+                    document.getElementById('sentimentResults').innerHTML = '<div class="alert alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>감정 분석 결과가 없습니다.</div>';
+                }
 
-                    // 워드클라우드 표시
+                // 워드클라우드 표시
+                if (data.wordcloud_path) {
                     document.getElementById('wordcloudResults').innerHTML = `
-                        <img src="${data.wordcloud_path}" class="img-fluid" alt="워드클라우드">
+                        <div class="card shadow-sm">
+                            <div class="card-body p-0">
+                                <img src="${data.wordcloud_path}" class="img-fluid rounded" alt="워드클라우드" onerror="this.onerror=null; this.src='https://via.placeholder.com/800x500?text=이미지+로드+실패'; this.parentElement.innerHTML += '<div class=\'alert alert-warning mt-2\'>이미지를 불러올 수 없습니다.</div>'">
+                            </div>
+                        </div>
                     `;
+                } else {
+                    document.getElementById('wordcloudResults').innerHTML = '<div class="alert alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>워드클라우드를 생성할 수 없습니다.</div>';
+                }
 
-                    // 키워드 네트워크 표시
-                    if (data.network_path) {
-                        let networkHtml = `
-                            <div class="row mb-3">
-                                <div class="col-md-12">
-                                    <img src="${data.network_path}" class="img-fluid" alt="키워드 네트워크">
+                // 키워드 네트워크 표시
+                if (data.network_path) {
+                    let networkHtml = `
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <div class="card shadow-sm">
+                                    <div class="card-body p-0">
+                                        <img src="${data.network_path}" class="img-fluid rounded" alt="키워드 네트워크" onerror="this.onerror=null; this.src='https://via.placeholder.com/800x500?text=이미지+로드+실패'; this.parentElement.innerHTML += '<div class=\'alert alert-warning mt-2\'>이미지를 불러올 수 없습니다.</div>'">
+                                    </div>
                                 </div>
                             </div>
-                        `;
+                        </div>
+                    `;
 
-                        if (data.network_nodes && data.network_nodes.length > 0) {
-                            networkHtml += `
-                                <div class="row">
-                                    <div class="col-md-12">
-                                        <h5>주요 노드 목록</h5>
-                                        <table class="table">
+                    if (data.network_nodes && data.network_nodes.length > 0) {
+                        networkHtml += `
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-sitemap me-2"></i>주요 노드 목록</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover mb-0">
                                             <thead>
                                                 <tr>
                                                     <th>키워드</th>
@@ -308,181 +737,228 @@
                                             <tbody>
                                                 ${data.network_nodes.map(node => `
                                                     <tr>
-                                                        <td>${node.word}</td>
-                                                        <td>${node.size}</td>
+                                                        <td><span class="fw-medium">${node.word}</span></td>
+                                                        <td><span class="badge bg-primary rounded-pill">${node.size}</span></td>
                                                     </tr>
                                                 `).join('')}
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
-                            `;
-                        }
-
-                        document.getElementById('networkResults').innerHTML = networkHtml;
-                    } else {
-                        document.getElementById('networkResults').innerHTML = '<p>네트워크 분석 결과를 생성할 수 없습니다.</p>';
+                            </div>
+                        `;
                     }
 
-                    // 상관관계 히트맵 표시
-                    if (data.heatmap_path) {
-                        document.getElementById('heatmapResults').innerHTML = `
-                            <div class="row">
-                                <div class="col-md-12">
-                                    <img src="${data.heatmap_path}" class="img-fluid" alt="키워드 상관관계 히트맵">
+                    document.getElementById('networkResults').innerHTML = networkHtml;
+                } else {
+                    document.getElementById('networkResults').innerHTML = '<div class="alert alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>네트워크 분석 결과를 생성할 수 없습니다.</div>';
+                }
+
+                // 상관관계 히트맵 표시
+                if (data.heatmap_path) {
+                    document.getElementById('heatmapResults').innerHTML = `
+                        <div class="card shadow-sm">
+                            <div class="card-body p-0">
+                                <img src="${data.heatmap_path}" class="img-fluid rounded" alt="키워드 상관관계 히트맵">
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('heatmapResults').innerHTML = '<div class="alert alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>상관관계 히트맵을 생성할 수 없습니다.</div>';
+                }
+
+                // 긍정/부정 워드클라우드 표시
+                let sentimentCloudHtml = '<div class="row g-4">';
+
+                if (data.pos_wordcloud_path) {
+                    sentimentCloudHtml += `
+                        <div class="col-md-6">
+                            <div class="card shadow-sm">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="mb-0"><i class="fas fa-cloud me-2"></i>긍정 단어 워드클라우드</h5>
+                                </div>
+                                <div class="card-body p-0">
+                                    <img src="${data.pos_wordcloud_path}" class="img-fluid rounded-bottom" alt="긍정 단어 워드클라우드">
                                 </div>
                             </div>
-                        `;
-                    } else {
-                        document.getElementById('heatmapResults').innerHTML = '<p>상관관계 히트맵을 생성할 수 없습니다.</p>';
-                    }
+                        </div>
+                    `;
+                }
 
-                    // 긍정/부정 워드클라우드 표시
-                    let sentimentCloudHtml = '<div class="row">';
-
-                    if (data.pos_wordcloud_path) {
-                        sentimentCloudHtml += `
-                            <div class="col-md-6">
-                                <h5>긍정 단어 워드클라우드</h5>
-                                <img src="${data.pos_wordcloud_path}" class="img-fluid" alt="긍정 단어 워드클라우드">
-                            </div>
-                        `;
-                    }
-
-                    if (data.neg_wordcloud_path) {
-                        sentimentCloudHtml += `
-                            <div class="col-md-6">
-                                <h5>부정 단어 워드클라우드</h5>
-                                <img src="${data.neg_wordcloud_path}" class="img-fluid" alt="부정 단어 워드클라우드">
-                            </div>
-                        `;
-                    }
-
-                    sentimentCloudHtml += '</div>';
-
-                    if (data.pos_wordcloud_path || data.neg_wordcloud_path) {
-                        document.getElementById('sentimentCloudResults').innerHTML = sentimentCloudHtml;
-                    } else {
-                        document.getElementById('sentimentCloudResults').innerHTML = '<p>감정 분석 워드클라우드를 생성할 수 없습니다.</p>';
-                    }
-
-                    // 토픽 점유율 표시
-                    if (data.topic_shares_path) {
-                        document.getElementById('topicSharesResults').innerHTML = `
-                            <div class="row">
-                                <div class="col-md-12">
-                                    <img src="${data.topic_shares_path}" class="img-fluid" alt="토픽 점유율 차트">
+                if (data.neg_wordcloud_path) {
+                    sentimentCloudHtml += `
+                        <div class="col-md-6">
+                            <div class="card shadow-sm">
+                                <div class="card-header bg-danger text-white">
+                                    <h5 class="mb-0"><i class="fas fa-cloud me-2"></i>부정 단어 워드클라우드</h5>
+                                </div>
+                                <div class="card-body p-0">
+                                    <img src="${data.neg_wordcloud_path}" class="img-fluid rounded-bottom" alt="부정 단어 워드클라우드">
                                 </div>
                             </div>
-                        `;
-                    } else {
-                        document.getElementById('topicSharesResults').innerHTML = '<p>토픽 점유율 차트를 생성할 수 없습니다.</p>';
-                    }
+                        </div>
+                    `;
+                }
 
-                    // 중심성 분석 표시
-                    if (data.centrality_path) {
-                        document.getElementById('centralityResults').innerHTML = `
-                            <div class="row">
-                                <div class="col-md-12">
-                                    <img src="${data.centrality_path}" class="img-fluid" alt="키워드 중심성 분석">
-                                </div>
+                sentimentCloudHtml += '</div>';
+
+                if (data.pos_wordcloud_path || data.neg_wordcloud_path) {
+                    document.getElementById('sentimentCloudResults').innerHTML = sentimentCloudHtml;
+                } else {
+                    document.getElementById('sentimentCloudResults').innerHTML = '<div class="alert alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>감정 분석 워드클라우드를 생성할 수 없습니다.</div>';
+                }
+
+                // 토픽 점유율 표시
+                if (data.topic_shares_path) {
+                    document.getElementById('topicSharesResults').innerHTML = `
+                        <div class="card shadow-sm">
+                            <div class="card-body p-0">
+                                <img src="${data.topic_shares_path}" class="img-fluid rounded" alt="토픽 점유율 차트">
                             </div>
-                        `;
-                    } else {
-                        document.getElementById('centralityResults').innerHTML = '<p>키워드 중심성 분석을 생성할 수 없습니다.</p>';
-                    }
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('topicSharesResults').innerHTML = '<div class="alert alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>토픽 점유율 차트를 생성할 수 없습니다.</div>';
+                }
 
-                    // 클러스터링 분석 표시
-                    if (data.clustering_path) {
-                        let clusteringHtml = `
-                            <div class="row mb-3">
-                                <div class="col-md-12">
-                                    <img src="${data.clustering_path}" class="img-fluid" alt="키워드 클러스터 분석">
-                                </div>
+                // 중심성 분석 표시
+                if (data.centrality_path) {
+                    document.getElementById('centralityResults').innerHTML = `
+                        <div class="card shadow-sm">
+                            <div class="card-body p-0">
+                                <img src="${data.centrality_path}" class="img-fluid rounded" alt="키워드 중심성 분석">
                             </div>
-                        `;
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('centralityResults').innerHTML = '<div class="alert alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>키워드 중심성 분석을 생성할 수 없습니다.</div>';
+                }
 
-                        if (data.community_info && data.community_info.length > 0) {
-                            clusteringHtml += `
-                                <div class="row">
-                                    <div class="col-md-12">
-                                        <h5>클러스터 정보</h5>
-                                        <div class="table-responsive">
-                                            <table class="table">
-                                                <thead>
-                                                    <tr>
-                                                        <th>클러스터</th>
-                                                        <th>크기</th>
-                                                        <th>주요 키워드</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    ${data.community_info.map(community => `
-                                                        <tr>
-                                                            <td>클러스터 ${community.id}</td>
-                                                            <td>${community.size}</td>
-                                                            <td>${community.top_words.map(w => w.word).join(', ')}</td>
-                                                        </tr>
-                                                    `).join('')}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                // 클러스터링 분석 표시
+                if (data.clustering_path) {
+                    let clusteringHtml = `
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <div class="card shadow-sm">
+                                    <div class="card-body p-0">
+                                        <img src="${data.clustering_path}" class="img-fluid rounded" alt="키워드 클러스터 분석">
                                     </div>
                                 </div>
-                            `;
-                        }
+                            </div>
+                        </div>
+                    `;
 
-                        document.getElementById('clusteringResults').innerHTML = clusteringHtml;
-                    } else {
-                        document.getElementById('clusteringResults').innerHTML = '<p>키워드 클러스터 분석을 생성할 수 없습니다.</p>';
-                    }
-
-                    // 키워드 영향력 버블 차트 표시
-                    if (data.bubble_path) {
-                        document.getElementById('bubbleChartResults').innerHTML = `
-                            <div class="row">
-                                <div class="col-md-12">
-                                    <img src="${data.bubble_path}" class="img-fluid" alt="키워드 영향력 버블 차트">
+                    if (data.community_info && data.community_info.length > 0) {
+                        clusteringHtml += `
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-object-group me-2"></i>클러스터 정보</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th>클러스터</th>
+                                                    <th>크기</th>
+                                                    <th>주요 키워드</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${data.community_info.map(community => `
+                                                    <tr>
+                                                        <td><span class="badge bg-primary rounded-pill">클러스터 ${community.id}</span></td>
+                                                        <td>${community.size}</td>
+                                                        <td><span class="text-nowrap">${community.top_words.map(w => `<span class="badge bg-light text-dark me-1">${w.word}</span>`).join('')}</span></td>
+                                                    </tr>
+                                                `).join('')}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
                         `;
-                    } else {
-                        document.getElementById('bubbleChartResults').innerHTML = '<p>키워드 영향력 버블 차트를 생성할 수 없습니다.</p>';
                     }
 
-                    // 키워드 군집 3D 시각화 표시
-                    if (data.clusters3d_path) {
-                        document.getElementById('clusters3dResults').innerHTML = `
-                            <div class="row">
-                                <div class="col-md-12">
-                                    <img src="${data.clusters3d_path}" class="img-fluid" alt="키워드 군집 3D 시각화">
-                                </div>
-                            </div>
-                        `;
-                    } else {
-                        document.getElementById('clusters3dResults').innerHTML = '<p>키워드 군집 3D 시각화를 생성할 수 없습니다.</p>';
-                    }
-
-                    // CSV 다운로드 버튼 표시
-                    document.getElementById('download-csv').style.display = 'inline-block';
-                    // PDF 다운로드 버튼 표시
-                    document.getElementById('download-pdf').style.display = 'inline-block';
-
-                    results.style.display = 'block';
+                    document.getElementById('clusteringResults').innerHTML = clusteringHtml;
                 } else {
-                    alert(data.error || '분석 중 오류가 발생했습니다.');
+                    document.getElementById('clusteringResults').innerHTML = '<div class="alert alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>키워드 클러스터 분석을 생성할 수 없습니다.</div>';
                 }
+
+                // 키워드 영향력 버블 차트 표시
+                if (data.bubble_path) {
+                    document.getElementById('bubbleChartResults').innerHTML = `
+                        <div class="card shadow-sm">
+                            <div class="card-body p-0">
+                                <img src="${data.bubble_path}" class="img-fluid rounded" alt="키워드 영향력 버블 차트">
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('bubbleChartResults').innerHTML = '<div class="alert alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>키워드 영향력 버블 차트를 생성할 수 없습니다.</div>';
+                }
+
+                // 키워드 군집 3D 시각화 표시
+                if (data.clusters3d_path) {
+                    document.getElementById('clusters3dResults').innerHTML = `
+                        <div class="card shadow-sm">
+                            <div class="card-body p-0">
+                                <img src="${data.clusters3d_path}" class="img-fluid rounded" alt="키워드 군집 3D 시각화">
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('clusters3dResults').innerHTML = '<div class="alert alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>키워드 군집 3D 시각화를 생성할 수 없습니다.</div>';
+                }
+
+                // 데이터 로드가 완료됨을 알림
+                console.log('모든 데이터 로드 완료');
+                
+                // 다운로드 버튼 표시
+                document.getElementById('download-csv').style.display = 'inline-block';
+                document.getElementById('download-pdf').style.display = 'inline-block';
+
+                // 결과 표시 및 스크롤 이동
+                results.style.display = 'block';
+                
+                // 결과로 스크롤 이동
+                setTimeout(() => {
+                    document.getElementById('resultTabs').scrollIntoView({ behavior: 'smooth' });
+                }, 500);
             } catch (error) {
-                alert('서버 오류가 발생했습니다.');
+                showAlert('danger', '서버 오류가 발생했습니다.');
                 console.error(error);
             } finally {
                 loading.style.display = 'none';
             }
         });
 
+        // 알림 표시 함수
+        function showAlert(type, message) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show mt-3`;
+            alertDiv.role = 'alert';
+            alertDiv.innerHTML = `
+                <i class="fas fa-${type === 'danger' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            document.querySelector('.card').after(alertDiv);
+            
+            // 3초 후 자동으로 알림 닫기
+            setTimeout(() => {
+                const bsAlert = new bootstrap.Alert(alertDiv);
+                bsAlert.close();
+            }, 5000);
+        }
+
         // CSV 다운로드 버튼 클릭 이벤트
         document.getElementById('download-csv').addEventListener('click', async function () {
             try {
+                // 다운로드 버튼 비활성화 및 로딩 표시
+                this.disabled = true;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> 다운로드 중...';
+                
                 // 현재 분석 결과에서 필요한 데이터 수집
                 const tableData = [];
 
@@ -517,9 +993,9 @@
                 // 토픽 모델링 결과 추가
                 const topicResults = document.getElementById('topicResults');
                 if (topicResults) {
-                    const topicSections = topicResults.querySelectorAll('div.mb-3');
+                    const topicSections = topicResults.querySelectorAll('div.card');
                     topicSections.forEach((section) => {
-                        const topicTitle = section.querySelector('h4').textContent;
+                        const topicTitle = section.querySelector('h5').textContent;
                         const topicRows = section.querySelectorAll('tbody tr');
 
                         topicRows.forEach((row) => {
@@ -556,18 +1032,29 @@
                     a.click();
                     window.URL.revokeObjectURL(url);
                     document.body.removeChild(a);
+                    
+                    // 다운로드 성공 메시지
+                    showAlert('success', 'CSV 파일이 성공적으로 다운로드되었습니다.');
                 } else {
                     throw new Error('CSV 다운로드 실패');
                 }
             } catch (error) {
-                alert('CSV 다운로드 중 오류가 발생했습니다.');
+                showAlert('danger', 'CSV 다운로드 중 오류가 발생했습니다.');
                 console.error(error);
+            } finally {
+                // 버튼 상태 복원
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-file-csv me-2"></i> CSV 다운로드';
             }
         });
 
         // PDF 다운로드 버튼 클릭 이벤트
         document.getElementById('download-pdf').addEventListener('click', async function () {
             try {
+                // 다운로드 버튼 비활성화 및 로딩 표시
+                this.disabled = true;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> 다운로드 중...';
+                
                 // 현재 분석 결과 HTML을 가져옴
                 const resultsContainer = document.getElementById('results');
                 const htmlContent = resultsContainer.innerHTML;
@@ -595,12 +1082,19 @@
                     a.click();
                     window.URL.revokeObjectURL(url);
                     document.body.removeChild(a);
+                    
+                    // 다운로드 성공 메시지
+                    showAlert('success', 'ZIP 파일이 성공적으로 다운로드되었습니다.');
                 } else {
                     throw new Error('ZIP 다운로드 실패');
                 }
             } catch (error) {
-                alert('ZIP 다운로드 중 오류가 발생했습니다.');
+                showAlert('danger', 'ZIP 다운로드 중 오류가 발생했습니다.');
                 console.error(error);
+            } finally {
+                // 버튼 상태 복원
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-file-archive me-2"></i> 결과 및 이미지 다운로드(ZIP)';
             }
         });
     </script>
