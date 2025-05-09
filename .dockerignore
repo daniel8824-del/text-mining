@@ -37,7 +37,8 @@ textmining_env/
 
 # 로그 및 임시 파일
 *.log
-*.json
+!knu_sentiment_lexicon.json
+!korean_stopwords.txt
 *.zip
 *.tar
 *.tar.gz

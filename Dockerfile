@@ -33,6 +33,9 @@ RUN cp /usr/share/fonts/truetype/nanum/NanumGothic.ttf /app/fonts/ || echo "Font
 # 애플리케이션 코드 복사
 COPY . .
 
+# 감성사전 파일 별도 복사 (확실히 포함되도록)
+COPY knu_sentiment_lexicon.json /app/
+
 # 필요한 디렉토리 생성
 RUN mkdir -p /app/uploads /app/static
 

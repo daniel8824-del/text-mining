@@ -16,6 +16,7 @@ import seaborn as sns  #시각화 라이브러리
 import networkx as nx  #네트워크 그래프 라이브러리
 from wordcloud import WordCloud  #워드 클라우드 라이브러리
 from text_mining_knu import KnuTextMining  # 감성사전 로드 
+import json  #JSON 모듈
 
 # 한국어 처리 라이브러리
 from konlpy.tag import Okt, Hannanum, Mecab, Kkma  # 한국어 형태소 분석기
@@ -95,33 +96,42 @@ class TextMiningAnalysis:
             return set(['은', '는', '이', '가', '을', '를', '와', '과', '의', '에', '에서', '로', '으로'])
             
     def _load_sentiment_dict(self):
-        # 감성사전 파일 경로
+        # 감성사전 파일 경로 (JSON 파일로 변경)
         try:
-            sentiment_path = 'knu_sentiment_lexicon.csv'
+            # 가능한 경로들을 시도
+            possible_paths = [
+                'knu_sentiment_lexicon.json',                    # 현재 작업 디렉토리 (상대 경로)
+                os.path.join(os.getcwd(), 'knu_sentiment_lexicon.json'),  # 현재 작업 디렉토리 (절대 경로)
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), 'knu_sentiment_lexicon.json'),  # 스크립트 위치
+                '/app/knu_sentiment_lexicon.json',               # 도커 컨테이너 루트 경로
+                '../knu_sentiment_lexicon.json',                 # 상위 디렉토리
+            ]
             
-            # 상대 경로로 파일이 없을 경우 절대 경로 시도
-            if not os.path.exists(sentiment_path):
-                base_dir = os.path.dirname(os.path.abspath(__file__))
-                sentiment_path = os.path.join(base_dir, 'knu_sentiment_lexicon.csv')
-                
-            sentiment_dict = {}
+            print(f"현재 작업 디렉토리: {os.getcwd()}")
             
-            if os.path.exists(sentiment_path):
-                with open(sentiment_path, 'r', encoding='utf-8') as f:
-                    next(f)  # 헤더 스킵
-                    for line in f:
-                        if ',' in line:
-                            try:
-                                word, score = line.strip().split(',')
-                                if word and score:
-                                    sentiment_dict[word] = float(score)
-                            except ValueError:
-                                continue  # 라인 파싱 오류 무시
-                return sentiment_dict
-            else:
-                print(f"감성사전 파일을 찾을 수 없습니다: {sentiment_path}")
-                # KNU 감성사전 대신 기본 감성사전 제공
+            sentiment_path = None
+            for path in possible_paths:
+                if os.path.exists(path):
+                    sentiment_path = path
+                    print(f"감성사전 파일을 찾았습니다: {sentiment_path}")
+                    break
+                    
+            if sentiment_path is None:
+                print("어떤 경로에서도 감성사전 파일을 찾을 수 없습니다. 기본 감성사전을 사용합니다.")
+                # 가능한 경로 출력
+                for path in possible_paths:
+                    print(f"시도한 경로: {path}, 존재 여부: {os.path.exists(path)}")
                 return {'좋다': 1.0, '나쁘다': -1.0, '행복': 1.0, '슬픔': -1.0}
+                
+            # JSON 파일 로드
+            with open(sentiment_path, 'r', encoding='utf-8') as f:
+                sentiment_dict = json.load(f)
+                
+            # 점수를 문자열에서 숫자로 변환
+            sentiment_dict = {k: float(v) if isinstance(v, str) else v for k, v in sentiment_dict.items()}
+            
+            print(f"감성사전 단어 수: {len(sentiment_dict)}")
+            return sentiment_dict
         except Exception as e:
             print(f"감성사전 로드 오류: {e}")
             return {'좋다': 1.0, '나쁘다': -1.0, '행복': 1.0, '슬픔': -1.0}
