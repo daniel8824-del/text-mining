@@ -43,7 +43,8 @@ try:
     font_installed = False
     for font_path in font_paths:
         if os.path.exists(font_path):
-            plt.rcParams['font.family'] = 'NanumGothic' if 'Nanum' in font_path else 'Malgun Gothic'
+            # Malgun Gothic 대신 항상 NanumGothic으로 설정
+            plt.rcParams['font.family'] = 'NanumGothic'
             plt.rcParams['axes.unicode_minus'] = False
             print(f"한글 폰트 설정 완료: {font_path}")
             font_installed = True
@@ -275,6 +276,30 @@ async def analyze_text(
                 print(f"네트워크 그래프 저장 경로: {network_path}")
                 
                 try:
+                    # 한글 폰트 설정 - 명시적으로 여기서 다시 설정
+                    try:
+                        import matplotlib.font_manager as fm
+                        # 가능한 한글 폰트 경로 목록
+                        font_paths = [
+                            '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
+                            '/app/fonts/NanumGothic.ttf',
+                            'C:/Windows/Fonts/malgun.ttf'
+                        ]
+                        
+                        font_set = False
+                        for font_path in font_paths:
+                            if os.path.exists(font_path):
+                                plt.rcParams['font.family'] = 'NanumGothic'
+                                plt.rcParams['axes.unicode_minus'] = False
+                                print(f"네트워크 그래프용 한글 폰트 설정 완료: {font_path}")
+                                font_set = True
+                                break
+                                
+                        if not font_set:
+                            print("네트워크 그래프용 한글 폰트를 찾을 수 없습니다.")
+                    except Exception as font_err:
+                        print(f"네트워크 그래프 폰트 설정 오류: {font_err}")
+                    
                     # 네트워크 시각화
                     plt.figure(figsize=(10, 8))
                     analyzer.plot_network(network)
@@ -333,11 +358,35 @@ async def analyze_text(
             # 토픽 점유율 차트 저장 경로
             topic_chart_path = os.path.join(STATIC_DIR, f'topic_chart_{unique_filename}.png')
             
+            # 한글 폰트 설정 - 명시적으로 여기서 다시 설정
+            try:
+                import matplotlib.font_manager as fm
+                # 가능한 한글 폰트 경로 목록
+                font_paths = [
+                    '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
+                    '/app/fonts/NanumGothic.ttf',
+                    'C:/Windows/Fonts/malgun.ttf'
+                ]
+                
+                font_set = False
+                for font_path in font_paths:
+                    if os.path.exists(font_path):
+                        plt.rcParams['font.family'] = 'NanumGothic'
+                        plt.rcParams['axes.unicode_minus'] = False
+                        print(f"파이 차트용 한글 폰트 설정 완료: {font_path}")
+                        font_set = True
+                        break
+                        
+                if not font_set:
+                    print("파이 차트용 한글 폰트를 찾을 수 없습니다.")
+            except Exception as font_err:
+                print(f"파이 차트 폰트 설정 오류: {font_err}")
+            
             # 파이 차트 생성
             plt.figure(figsize=(10, 8))
             plt.pie(topic_shares, labels=topic_names, autopct='%1.1f%%', 
                    startangle=90, shadow=True)
-            plt.title('토픽 점유율')
+            plt.title('토픽 점유율', fontsize=16)
             plt.axis('equal')
             plt.tight_layout()
             plt.savefig(topic_chart_path, bbox_inches='tight')
@@ -468,8 +517,9 @@ async def analyze_text(
             # 한글 폰트 설정 확인
             try:
                 import matplotlib.font_manager as fm
-                plt.rcParams['font.family'] = 'Malgun Gothic' if os.path.exists('C:/Windows/Fonts/malgun.ttf') else 'NanumGothic'
+                plt.rcParams['font.family'] = 'NanumGothic'
                 plt.rcParams['axes.unicode_minus'] = False
+                print(f"히트맵용 한글 폰트 설정 완료")
             except Exception as font_error:
                 print(f"폰트 설정 오류: {font_error}")
             
@@ -558,44 +608,91 @@ async def analyze_text(
         
         # 11. 클러스터링 분석 (고급 분석 탭)
         try:
-            if len(analyzer.tf_idf_matrix) > 5:  # 충분한 데이터가 있는지 확인
+            # 데이터가 충분한지 확인
+            if analyzer.tf_idf_matrix is not None and analyzer.tf_idf_matrix.shape[0] > 5:
+                print(f"클러스터링 분석 시작: 문서 수 = {analyzer.tf_idf_matrix.shape[0]}")
+                
                 # 1) 클러스터링 시각화
                 # TF-IDF 행렬을 2D로 차원 축소
-                tsne = TSNE(n_components=2, random_state=42, perplexity=min(30, len(analyzer.tf_idf_matrix)-1))
+                n_samples = analyzer.tf_idf_matrix.shape[0]
+                # perplexity는 샘플 수보다 작아야 함
+                tsne_perplexity = min(30, max(5, n_samples-1))
+                print(f"TSNE 차원 축소 시작: 문서 수 = {n_samples}, perplexity = {tsne_perplexity}")
+                tsne = TSNE(n_components=2, random_state=42, perplexity=tsne_perplexity)
                 tsne_results = tsne.fit_transform(analyzer.tf_idf_matrix.toarray())
                 
                 # 클러스터링 수행 (K-means)
-                num_clusters = min(5, len(analyzer.tf_idf_matrix))  # 최대 5개 클러스터
+                num_clusters = min(5, analyzer.tf_idf_matrix.shape[0])  # 최대 5개 클러스터
                 kmeans = KMeans(n_clusters=num_clusters, random_state=42)
                 cluster_labels = kmeans.fit_predict(analyzer.tf_idf_matrix.toarray())
                 
-                # 클러스터링 결과 시각화
+                # 클러스터링 결과 시각화 경로
                 clustering_path = os.path.join(STATIC_DIR, f'clustering_{unique_filename}.png')
+                
+                # 한글 폰트 설정 - 명시적으로 여기서 다시 설정
+                try:
+                    import matplotlib.font_manager as fm
+                    # 가능한 한글 폰트 경로 목록
+                    font_paths = [
+                        '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
+                        '/app/fonts/NanumGothic.ttf',
+                        'C:/Windows/Fonts/malgun.ttf'
+                    ]
+                    
+                    font_set = False
+                    for font_path in font_paths:
+                        if os.path.exists(font_path):
+                            plt.rcParams['font.family'] = 'NanumGothic'
+                            plt.rcParams['axes.unicode_minus'] = False
+                            print(f"클러스터 분석용 한글 폰트 설정 완료: {font_path}")
+                            font_set = True
+                            break
+                            
+                    if not font_set:
+                        print("클러스터 분석용 한글 폰트를 찾을 수 없습니다.")
+                except Exception as font_err:
+                    print(f"클러스터 분석 폰트 설정 오류: {font_err}")
+                
+                # 클러스터링 결과 시각화
                 plt.figure(figsize=(12, 8))
                 
                 colors = plt.cm.tab10(np.linspace(0, 1, num_clusters))
                 for i in range(num_clusters):
                     # 해당 클러스터에 속한 점 찾기
                     cluster_points = tsne_results[cluster_labels == i]
-                    plt.scatter(
-                        cluster_points[:, 0], 
-                        cluster_points[:, 1], 
-                        s=100, 
-                        c=[colors[i]], 
-                        label=f'클러스터 {i+1}'
-                    )
+                    if len(cluster_points) > 0:  # 클러스터에 점이 있는지 확인
+                        plt.scatter(
+                            cluster_points[:, 0], 
+                            cluster_points[:, 1], 
+                            s=100, 
+                            c=[colors[i]], 
+                            label=f'클러스터 {i+1}'
+                        )
                 
                 # 중심점 표시
                 centers = kmeans.cluster_centers_
-                centers_2d = tsne.fit_transform(centers)
-                plt.scatter(
-                    centers_2d[:, 0], 
-                    centers_2d[:, 1], 
-                    s=200, 
-                    c='black', 
-                    alpha=0.5, 
-                    marker='X'
-                )
+                if len(tsne_results) > 0:  # 결과가 있는지 확인
+                    try:
+                        # perplexity 값을 centers 개수보다 작게 설정
+                        min_perplexity = min(5, centers.shape[0] - 1)  # 최소 perplexity는 5 또는 centers-1 중 작은 값
+                        if centers.shape[0] <= 1:  # centers가 1개 이하인 경우
+                            print("클러스터 중심점이 너무 적어 TSNE 변환을 건너뜁니다.")
+                            # 중심점 표시 없이 진행
+                        else:
+                            centers_tsne = TSNE(n_components=2, random_state=42, perplexity=min_perplexity)
+                            centers_2d = centers_tsne.fit_transform(centers)
+                            plt.scatter(
+                                centers_2d[:, 0], 
+                                centers_2d[:, 1], 
+                                s=200, 
+                                c='black', 
+                                alpha=0.5, 
+                                marker='X'
+                            )
+                    except Exception as tsne_err:
+                        print(f"클러스터 중심점 TSNE 변환 오류: {tsne_err}")
+                        print("클러스터 중심점 표시를 건너뜁니다.")
+                        # 중심점 표시 없이 진행
                 
                 plt.title('키워드 클러스터 분석', fontsize=16)
                 plt.legend(fontsize=12)
@@ -604,9 +701,12 @@ async def analyze_text(
                 plt.savefig(clustering_path, bbox_inches='tight')
                 plt.close()
                 
+                # 파일 생성 확인
                 if os.path.exists(clustering_path):
+                    print(f"클러스터링 분석 이미지 생성 완료: {clustering_path}")
                     results['clustering_path'] = f'/static/clustering_{unique_filename}.png'
                 else:
+                    print("클러스터링 분석 이미지 생성 실패")
                     results['clustering_path'] = ''
                 
                 # 클러스터 정보 생성
@@ -626,117 +726,200 @@ async def analyze_text(
                                     cluster_word_freq[word] = 1
                     
                     # 상위 키워드 추출
-                    top_words = sorted(cluster_word_freq.items(), key=lambda x: x[1], reverse=True)[:5]
-                    
-                    community_info.append({
-                        'id': i + 1,
-                        'size': len(cluster_docs),
-                        'top_words': [{'word': word, 'freq': freq} for word, freq in top_words]
-                    })
+                    if cluster_word_freq:  # 단어가 있는지 확인
+                        top_words = sorted(cluster_word_freq.items(), key=lambda x: x[1], reverse=True)[:5]
+                        
+                        community_info.append({
+                            'id': i + 1,
+                            'size': len(cluster_docs),
+                            'top_words': [{'word': word, 'freq': freq} for word, freq in top_words]
+                        })
                 
+                print(f"커뮤니티 정보 생성 완료: {len(community_info)} 클러스터")
                 results['community_info'] = community_info
                 
                 # 2) 키워드 영향력 버블 차트
                 bubble_path = os.path.join(STATIC_DIR, f'bubble_{unique_filename}.png')
-                plt.figure(figsize=(12, 8))
                 
-                # 상위 30개 키워드 대상으로 버블 차트 생성
-                top_words = analyzer.word_freq.most_common(30)
-                word_list, freq_list = zip(*top_words)
-                
-                # 키워드 중요도 점수 계산 (TF-IDF 점수 평균)
-                importance_scores = []
-                for word in word_list:
-                    if word in analyzer.tf_idf_feature_names:
-                        idx = list(analyzer.tf_idf_feature_names).index(word)
-                        score = np.mean(analyzer.tf_idf_matrix[:, idx].toarray())
-                        importance_scores.append(score)
+                try:
+                    # 한글 폰트 설정 - 명시적으로 여기서 다시 설정
+                    try:
+                        import matplotlib.font_manager as fm
+                        # 가능한 한글 폰트 경로 목록
+                        font_paths = [
+                            '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
+                            '/app/fonts/NanumGothic.ttf',
+                            'C:/Windows/Fonts/malgun.ttf'
+                        ]
+                        
+                        font_set = False
+                        for font_path in font_paths:
+                            if os.path.exists(font_path):
+                                plt.rcParams['font.family'] = 'NanumGothic'
+                                plt.rcParams['axes.unicode_minus'] = False
+                                print(f"버블차트용 한글 폰트 설정 완료: {font_path}")
+                                font_set = True
+                                break
+                                
+                        if not font_set:
+                            print("버블차트용 한글 폰트를 찾을 수 없습니다.")
+                    except Exception as font_err:
+                        print(f"버블차트 폰트 설정 오류: {font_err}")
+                    
+                    # 상위 30개 키워드 대상으로 버블 차트 생성
+                    if hasattr(analyzer, 'word_freq') and analyzer.word_freq:
+                        plt.figure(figsize=(12, 8))
+                        
+                        # 단어 빈도 데이터 가져오기
+                        top_words = analyzer.word_freq.most_common(min(30, len(analyzer.word_freq)))
+                        if top_words:  # 단어가 있는지 확인
+                            word_list, freq_list = zip(*top_words)
+                            
+                            # 키워드 중요도 점수 계산 (TF-IDF 점수 평균)
+                            importance_scores = []
+                            for word in word_list:
+                                if word in analyzer.tf_idf_feature_names:
+                                    idx = list(analyzer.tf_idf_feature_names).index(word)
+                                    score = np.mean(analyzer.tf_idf_matrix[:, idx].toarray())
+                                    importance_scores.append(score)
+                                else:
+                                    importance_scores.append(0.01)  # 기본값
+                            
+                            # 버블 사이즈 계산
+                            sizes = [f * 50 for f in freq_list]  # 빈도수에 비례
+                            
+                            # 색상 그라데이션 (중요도에 따라)
+                            cmap = plt.cm.YlOrRd
+                            norm = plt.Normalize(min(importance_scores), max(importance_scores))
+                            colors = cmap(norm(importance_scores))
+                            
+                            # 버블 플롯 생성
+                            scatter = plt.scatter(
+                                range(len(word_list)), 
+                                importance_scores, 
+                                s=sizes, 
+                                c=colors, 
+                                alpha=0.7, 
+                                edgecolors='gray'
+                            )
+                            
+                            # 키워드 레이블 추가
+                            for i, word in enumerate(word_list):
+                                plt.annotate(
+                                    word, 
+                                    (i, importance_scores[i]),
+                                    xytext=(0, 5),
+                                    textcoords='offset points',
+                                    ha='center', 
+                                    fontsize=9
+                                )
+                            
+                            plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), label='중요도 점수')
+                            plt.title('키워드 영향력 버블 차트', fontsize=16)
+                            plt.xlabel('키워드', fontsize=12)
+                            plt.ylabel('중요도 점수', fontsize=12)
+                            plt.xticks(range(len(word_list)), word_list, rotation=90)
+                            plt.grid(True, linestyle='--', alpha=0.7)
+                            plt.tight_layout()
+                            plt.savefig(bubble_path, bbox_inches='tight')
+                            plt.close()
+                            
+                            # 파일 생성 확인
+                            if os.path.exists(bubble_path):
+                                print(f"버블 차트 이미지 생성 완료: {bubble_path}")
+                                results['bubble_path'] = f'/static/bubble_{unique_filename}.png'
+                            else:
+                                print("버블 차트 이미지 생성 실패")
+                                results['bubble_path'] = ''
+                        else:
+                            print("버블 차트 생성을 위한 단어 빈도 데이터가 없습니다.")
+                            results['bubble_path'] = ''
                     else:
-                        importance_scores.append(0.01)  # 기본값
-                
-                # 버블 사이즈 계산
-                sizes = [f * 50 for f in freq_list]  # 빈도수에 비례
-                
-                # 색상 그라데이션 (중요도에 따라)
-                cmap = plt.cm.YlOrRd
-                norm = plt.Normalize(min(importance_scores), max(importance_scores))
-                colors = cmap(norm(importance_scores))
-                
-                # 버블 플롯 생성
-                scatter = plt.scatter(
-                    range(len(word_list)), 
-                    importance_scores, 
-                    s=sizes, 
-                    c=colors, 
-                    alpha=0.7, 
-                    edgecolors='gray'
-                )
-                
-                # 키워드 레이블 추가
-                for i, word in enumerate(word_list):
-                    plt.annotate(
-                        word, 
-                        (i, importance_scores[i]),
-                        xytext=(0, 5),
-                        textcoords='offset points',
-                        ha='center', 
-                        fontsize=9
-                    )
-                
-                plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), label='중요도 점수')
-                plt.title('키워드 영향력 버블 차트', fontsize=16)
-                plt.xlabel('키워드', fontsize=12)
-                plt.ylabel('중요도 점수', fontsize=12)
-                plt.xticks(range(len(word_list)), word_list, rotation=90)
-                plt.grid(True, linestyle='--', alpha=0.7)
-                plt.tight_layout()
-                plt.savefig(bubble_path, bbox_inches='tight')
-                plt.close()
-                
-                if os.path.exists(bubble_path):
-                    results['bubble_path'] = f'/static/bubble_{unique_filename}.png'
-                else:
+                        print("단어 빈도 정보가 없습니다.")
+                        results['bubble_path'] = ''
+                except Exception as bubble_error:
+                    print(f"버블 차트 생성 오류: {bubble_error}")
+                    print(traceback.format_exc())
                     results['bubble_path'] = ''
                 
                 # 3) 키워드 군집 3D 시각화
                 clusters3d_path = os.path.join(STATIC_DIR, f'clusters3d_{unique_filename}.png')
                 
-                # 3D 차원 축소 (TSNE)
-                tsne_3d = TSNE(n_components=3, random_state=42, perplexity=min(30, len(analyzer.tf_idf_matrix)-1))
-                tsne_results_3d = tsne_3d.fit_transform(analyzer.tf_idf_matrix.toarray())
-                
-                # 군집화 (Spectral Clustering)
-                spectral = SpectralClustering(n_clusters=min(4, len(analyzer.tf_idf_matrix)), random_state=42, assign_labels='discretize')
-                spectral_labels = spectral.fit_predict(analyzer.tf_idf_matrix.toarray())
-                
-                # 3D 시각화
-                fig = plt.figure(figsize=(12, 10))
-                ax = fig.add_subplot(111, projection='3d')
-                
-                # 색상 생성
-                colors_3d = plt.cm.jet(np.linspace(0, 1, len(np.unique(spectral_labels))))
-                
-                # 각 클러스터 그리기
-                for i, label in enumerate(np.unique(spectral_labels)):
-                    indices = spectral_labels == label
-                    xs = tsne_results_3d[indices, 0]
-                    ys = tsne_results_3d[indices, 1]
-                    zs = tsne_results_3d[indices, 2]
-                    ax.scatter(xs, ys, zs, c=[colors_3d[i]], label=f'클러스터 {i+1}', s=50, alpha=0.8)
-                
-                ax.set_title('키워드 군집 3D 시각화', fontsize=16)
-                ax.view_init(35, 45)  # 시각화 각도 조정
-                ax.legend()
-                ax.grid(True)
-                plt.tight_layout()
-                plt.savefig(clusters3d_path, bbox_inches='tight', dpi=150)
-                plt.close()
-                
-                if os.path.exists(clusters3d_path):
-                    results['clusters3d_path'] = f'/static/clusters3d_{unique_filename}.png'
-                else:
+                try:
+                    # 한글 폰트 설정 - 명시적으로 여기서 다시 설정
+                    try:
+                        import matplotlib.font_manager as fm
+                        # 가능한 한글 폰트 경로 목록
+                        font_paths = [
+                            '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
+                            '/app/fonts/NanumGothic.ttf',
+                            'C:/Windows/Fonts/malgun.ttf'
+                        ]
+                        
+                        font_set = False
+                        for font_path in font_paths:
+                            if os.path.exists(font_path):
+                                plt.rcParams['font.family'] = 'NanumGothic'
+                                plt.rcParams['axes.unicode_minus'] = False
+                                print(f"3D 시각화용 한글 폰트 설정 완료: {font_path}")
+                                font_set = True
+                                break
+                                
+                        if not font_set:
+                            print("3D 시각화용 한글 폰트를 찾을 수 없습니다.")
+                    except Exception as font_err:
+                        print(f"3D 시각화 폰트 설정 오류: {font_err}")
+                    
+                    # 3D 차원 축소 (TSNE)
+                    if analyzer.tf_idf_matrix.shape[0] >= 4:  # 최소 4개 이상의 문서가 필요
+                        tsne_3d = TSNE(n_components=3, random_state=42, perplexity=min(30, analyzer.tf_idf_matrix.shape[0]-1))
+                        tsne_results_3d = tsne_3d.fit_transform(analyzer.tf_idf_matrix.toarray())
+                        
+                        # 군집화 (Spectral Clustering)
+                        n_clusters = min(4, analyzer.tf_idf_matrix.shape[0])
+                        spectral = SpectralClustering(n_clusters=n_clusters, random_state=42, assign_labels='discretize')
+                        spectral_labels = spectral.fit_predict(analyzer.tf_idf_matrix.toarray())
+                        
+                        # 3D 시각화
+                        fig = plt.figure(figsize=(12, 10))
+                        ax = fig.add_subplot(111, projection='3d')
+                        
+                        # 색상 생성
+                        colors_3d = plt.cm.jet(np.linspace(0, 1, len(np.unique(spectral_labels))))
+                        
+                        # 각 클러스터 그리기
+                        for i, label in enumerate(np.unique(spectral_labels)):
+                            indices = spectral_labels == label
+                            xs = tsne_results_3d[indices, 0]
+                            ys = tsne_results_3d[indices, 1]
+                            zs = tsne_results_3d[indices, 2]
+                            if len(xs) > 0:  # 점이 있는지 확인
+                                ax.scatter(xs, ys, zs, c=[colors_3d[i]], label=f'클러스터 {i+1}', s=50, alpha=0.8)
+                        
+                        ax.set_title('키워드 군집 3D 시각화', fontsize=16)
+                        ax.view_init(35, 45)  # 시각화 각도 조정
+                        ax.legend()
+                        ax.grid(True)
+                        plt.tight_layout()
+                        plt.savefig(clusters3d_path, bbox_inches='tight', dpi=150)
+                        plt.close()
+                        
+                        # 파일 생성 확인
+                        if os.path.exists(clusters3d_path):
+                            print(f"3D 시각화 이미지 생성 완료: {clusters3d_path}")
+                            results['clusters3d_path'] = f'/static/clusters3d_{unique_filename}.png'
+                        else:
+                            print("3D 시각화 이미지 생성 실패")
+                            results['clusters3d_path'] = ''
+                    else:
+                        print("3D 시각화를 위한 충분한 데이터가 없습니다.")
+                        results['clusters3d_path'] = ''
+                except Exception as viz3d_error:
+                    print(f"3D 시각화 생성 오류: {viz3d_error}")
+                    print(traceback.format_exc())
                     results['clusters3d_path'] = ''
             else:
+                print("고급 분석을 위한 충분한 데이터가 없습니다.")
                 results['clustering_path'] = ''
                 results['bubble_path'] = ''
                 results['clusters3d_path'] = ''
