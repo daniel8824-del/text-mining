@@ -177,7 +177,7 @@ POS_OPTIONS = {
 
 # 메모리 관리 설정
 IS_RAILWAY = 'RAILWAY_ENVIRONMENT' in os.environ or 'RAILWAY_SERVICE_NAME' in os.environ
-MEMORY_LIMIT_MB = int(os.environ.get('MEMORY_LIMIT_MB', '3584'))  # 기본값 3584MB(3.5GB), 환경 변수에서 가져옴
+MEMORY_LIMIT_MB = int(os.environ.get('MEMORY_LIMIT_MB', '4096'))  # 기본값 4096MB(4GB), 환경 변수에서 가져옴
 MAX_MEMORY_PERCENT = 80  # 최대 메모리 사용률 (80%)
 MEMORY_THRESHOLD = MEMORY_LIMIT_MB * 0.8 * 1024 * 1024  # 메모리 임계값 (지정된 한도의 80%)
 MEMORY_CHECK_INTERVAL = 20  # 20초마다 메모리 체크
@@ -604,8 +604,39 @@ async def analyze_text(
             
         # 6. 키워드 네트워크 분석
         try:
-            network = analyzer.keyword_network_analysis(threshold=2, top_n=30)
+            # 데이터 크기에 따라 네트워크 분석 매개변수 조정
+            network_threshold = 2  # 기본값
+            network_top_n = 30  # 기본값
+            
+            # 대용량 데이터 감지
+            if hasattr(analyzer, 'word_freq') and len(analyzer.word_freq) > 5000:
+                # 대용량 데이터에서는 임계값 올리고 노드 수 제한
+                logger.info("대용량 데이터 감지: 네트워크 분석 매개변수 조정")
+                network_threshold = 3  # 더 엄격한 임계값
+                network_top_n = 20  # 노드 수 제한
+            
+            # 메모리 효율적인 네트워크 분석
+            logger.info(f"네트워크 분석 시작: 임계값={network_threshold}, 최대 노드={network_top_n}")
+            
+            network = analyzer.keyword_network_analysis(threshold=network_threshold, top_n=network_top_n)
             if network:
+                # 메모리 효율성을 위해 네트워크 노드 수 제한
+                if len(network.nodes()) > 50:
+                    logger.info(f"대용량 네트워크 감지: {len(network.nodes())}개 노드, 상위 50개로 제한")
+                    # 중요도(가중치) 기준으로 상위 노드만 유지
+                    node_weights = {node: network.nodes[node].get('size', 0) for node in network.nodes()}
+                    top_nodes = sorted(node_weights.items(), key=lambda x: x[1], reverse=True)[:50]
+                    top_nodes_set = {node for node, _ in top_nodes}
+                    
+                    # 하위 노드 제거
+                    nodes_to_remove = [node for node in network.nodes() if node not in top_nodes_set]
+                    for node in nodes_to_remove:
+                        network.remove_node(node)
+                    
+                    logger.info(f"네트워크 노드 제한 완료: {len(network.nodes())}개 노드 유지")
+                    # 메모리 정리
+                    gc.collect()
+                
                 # 네트워크 시각화 결과 경로
                 network_path = os.path.join(STATIC_DIR, f'network_{unique_filename}.png')
                 logger.info(f"네트워크 그래프 저장 경로: {network_path}")
@@ -635,8 +666,8 @@ async def analyze_text(
                     except Exception as font_err:
                         logger.error(f"네트워크 그래프 폰트 설정 오류: {font_err}")
                     
-                    # 네트워크 시각화
-                    plt.figure(figsize=(10, 8))
+                    # 네트워크 시각화 - 저해상도로 설정하여 메모리 절약
+                    plt.figure(figsize=(10, 8), dpi=100)
                     analyzer.plot_network(network)
                     
                     # 네트워크 그래프 저장
@@ -655,7 +686,7 @@ async def analyze_text(
                     logger.error(traceback.format_exc())
                     results['network_path'] = ''
                 
-                # 네트워크 노드 정보 추가
+                # 네트워크 노드 정보 추가 - 메모리 효율성을 위해 상위 20개만 추출
                 node_data = []
                 for node in network.nodes():
                     node_data.append({
@@ -663,6 +694,10 @@ async def analyze_text(
                         'size': network.nodes[node]['size']
                     })
                 results['network_nodes'] = sorted(node_data, key=lambda x: x['size'], reverse=True)[:20]
+                
+                # 명시적 메모리 정리
+                del network, node_data
+                gc.collect()
             else:
                 results['network_path'] = ''
                 results['network_nodes'] = []
@@ -1220,47 +1255,130 @@ async def analyze_text(
                     
                     # 3D 차원 축소 (TSNE)
                     if analyzer.tf_idf_matrix.shape[0] >= 4:  # 최소 4개 이상의 문서가 필요
-                        # 데이터 샘플 수에 따라 perplexity 조정
+                        # 데이터 크기 확인
                         n_samples = analyzer.tf_idf_matrix.shape[0]
-                        # perplexity는 보통 5~50 사이의 값 사용, 데이터 개수보다 작아야 함
-                        optimal_perplexity = min(30, max(5, n_samples // 3))
+                        n_features = analyzer.tf_idf_matrix.shape[1]
+                        logger.info(f"3D 시각화 데이터 크기: {n_samples} 문서, {n_features} 특성")
                         
-                        # 안전하게 샘플 수보다 작은 값으로 설정
-                        if optimal_perplexity >= n_samples:
-                            optimal_perplexity = max(2, n_samples - 1)
+                        # 청크 처리를 위한 설정
+                        chunk_size = 50  # 한 번에 처리할 문서 수
+                        total_chunks = (n_samples + chunk_size - 1) // chunk_size  # 올림 나눗셈
+                        logger.info(f"청크 단위 처리: 총 {total_chunks}개 청크 (청크 크기: {chunk_size})")
+                        
+                        # 전체 결과를 저장할 변수
+                        all_tsne_results = []
+                        all_cluster_labels = []
+                        
+                        # 청크 단위로 처리
+                        for chunk_idx in range(total_chunks):
+                            start_idx = chunk_idx * chunk_size
+                            end_idx = min(start_idx + chunk_size, n_samples)
+                            current_chunk_size = end_idx - start_idx
                             
-                        logger.info(f"3D t-SNE 설정: 샘플 수 = {n_samples}, perplexity = {optimal_perplexity}")
-                        tsne_3d = TSNE(n_components=3, random_state=42, perplexity=optimal_perplexity)
-                        tsne_results_3d = tsne_3d.fit_transform(analyzer.tf_idf_matrix.toarray())
+                            logger.info(f"청크 {chunk_idx+1}/{total_chunks} 처리 중 (인덱스 {start_idx}~{end_idx-1})")
+                            
+                            # 현재 청크 추출
+                            if hasattr(analyzer.tf_idf_matrix, 'toarray'):
+                                chunk_matrix = analyzer.tf_idf_matrix[start_idx:end_idx].toarray()
+                            else:
+                                chunk_matrix = analyzer.tf_idf_matrix[start_idx:end_idx]
+                            
+                            # perplexity 안전하게 설정 (청크 크기에 맞게)
+                            chunk_perplexity = min(30, max(5, current_chunk_size // 3))
+                            if chunk_perplexity >= current_chunk_size:
+                                chunk_perplexity = max(2, current_chunk_size - 1)
+                            
+                            # t-SNE로 3D 차원 축소 (현재 청크만)
+                            tsne_3d = TSNE(n_components=3, random_state=42, perplexity=chunk_perplexity)
+                            chunk_tsne_results = tsne_3d.fit_transform(chunk_matrix)
+                            
+                            # 군집화 (현재 청크만)
+                            n_clusters = min(4, current_chunk_size)
+                            kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=1)
+                            chunk_labels = kmeans.fit_predict(chunk_tsne_results)
+                            
+                            # 결과 누적
+                            all_tsne_results.append(chunk_tsne_results)
+                            all_cluster_labels.append(chunk_labels)
+                            
+                            # 메모리 정리
+                            del chunk_matrix, chunk_tsne_results, chunk_labels
+                            gc.collect()
+                            
+                            logger.info(f"청크 {chunk_idx+1} 처리 완료, 메모리 정리됨")
                         
-                        # 군집화 (Spectral Clustering)
-                        n_clusters = min(4, analyzer.tf_idf_matrix.shape[0])
-                        spectral = SpectralClustering(n_clusters=n_clusters, random_state=42, assign_labels='discretize')
-                        spectral_labels = spectral.fit_predict(analyzer.tf_idf_matrix.toarray())
+                        # 모든 청크 결과 병합
+                        tsne_results_3d = np.vstack(all_tsne_results)
+                        
+                        # 클러스터 라벨 병합 (오프셋 처리)
+                        cluster_labels = np.zeros(n_samples, dtype=int)
+                        offset = 0
+                        max_label = 0
+                        
+                        for i, labels in enumerate(all_cluster_labels):
+                            chunk_size = len(labels)
+                            # 이전 청크의 최대 라벨값 다음부터 시작하도록 오프셋 적용
+                            cluster_labels[offset:offset+chunk_size] = labels + max_label
+                            max_label += np.max(labels) + 1
+                            offset += chunk_size
+                        
+                        # 병합 후 메모리 정리
+                        del all_tsne_results, all_cluster_labels
+                        gc.collect()
+                        
+                        # 최종 군집 수 계산
+                        n_clusters = len(np.unique(cluster_labels))
+                        logger.info(f"최종 클러스터 수: {n_clusters}")
+                        
+                        # 저해상도로 시각화
+                        dpi = 100  # 낮은 DPI 설정
                         
                         # 3D 시각화
-                        fig = plt.figure(figsize=(12, 10))
+                        fig = plt.figure(figsize=(10, 8), dpi=dpi)
                         ax = fig.add_subplot(111, projection='3d')
                         
                         # 색상 생성
-                        colors_3d = plt.cm.jet(np.linspace(0, 1, len(np.unique(spectral_labels))))
+                        colors_3d = plt.cm.jet(np.linspace(0, 1, n_clusters))
                         
                         # 각 클러스터 그리기
-                        for i, label in enumerate(np.unique(spectral_labels)):
-                            indices = spectral_labels == label
-                            xs = tsne_results_3d[indices, 0]
-                            ys = tsne_results_3d[indices, 1]
-                            zs = tsne_results_3d[indices, 2]
+                        for i, label in enumerate(np.unique(cluster_labels)):
+                            indices = cluster_labels == label
+                            # 대용량 데이터는 샘플링
+                            if np.sum(indices) > 100:
+                                sample_idx = np.random.choice(np.where(indices)[0], 100, replace=False)
+                                xs = tsne_results_3d[sample_idx, 0]
+                                ys = tsne_results_3d[sample_idx, 1]
+                                zs = tsne_results_3d[sample_idx, 2]
+                            else:
+                                xs = tsne_results_3d[indices, 0]
+                                ys = tsne_results_3d[indices, 1]
+                                zs = tsne_results_3d[indices, 2]
+                                
                             if len(xs) > 0:  # 점이 있는지 확인
-                                ax.scatter(xs, ys, zs, c=[colors_3d[i]], label=f'클러스터 {i+1}', s=50, alpha=0.8)
+                                ax.scatter(xs, ys, zs, 
+                                           c=[colors_3d[i % len(colors_3d)]], 
+                                           label=f'클러스터 {i+1}', 
+                                           s=30, alpha=0.7)
                         
-                        ax.set_title('키워드 군집 3D 시각화', fontsize=16)
+                        ax.set_title('키워드 군집 3D 시각화', fontsize=14)
                         ax.view_init(35, 45)  # 시각화 각도 조정
-                        ax.legend()
+                        
+                        # 범례 최적화 (클러스터가 너무 많으면 범례 생략)
+                        if n_clusters <= 10:
+                            ax.legend(fontsize=8)
+                        else:
+                            # 일부 클러스터만 범례에 표시
+                            handles, labels = ax.get_legend_handles_labels()
+                            ax.legend(handles[:10], labels[:10], fontsize=8, title="주요 클러스터")
+                        
                         ax.grid(True)
                         plt.tight_layout()
-                        plt.savefig(clusters3d_path, bbox_inches='tight', dpi=150)
+                        plt.savefig(clusters3d_path, bbox_inches='tight', dpi=dpi)
                         plt.close()
+                        
+                        # 명시적 메모리 정리
+                        del tsne_results_3d, cluster_labels
+                        gc.collect()
                         
                         # 파일 생성 확인
                         if os.path.exists(clusters3d_path):
