@@ -965,16 +965,13 @@
                     document.getElementById('interactive3dResults').innerHTML = `
                         <div class="card shadow-sm">
                             <div class="card-body p-0">
-                                <div class="ratio ratio-16x9">
-                                    <iframe src="${data.interactive_3d_path}" allowfullscreen></iframe>
+                                <div style="height:550px; overflow:hidden; position:relative;">
+                                    <iframe src="${data.interactive_3d_path}" allowfullscreen style="position:absolute; top:0; left:0; width:100%; height:100%; border:none; overflow:hidden;"></iframe>
                                 </div>
                                 <div class="p-3 text-center">
                                     <a href="${data.interactive_3d_path}" target="_blank" class="btn btn-primary btn-lg px-4 py-2">
-                                        <i class="fas fa-external-link-alt me-2"></i> 새 창에서 열기
+                                        <i class="fas fa-expand me-2"></i> 전체화면으로 보기
                                     </a>
-                                    <p class="text-muted mt-2 small">
-                                        <i class="fas fa-info-circle me-1"></i> 새 창에서 열면 더 큰 화면으로 확대/축소/회전이 가능합니다
-                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -989,6 +986,8 @@
                 // 다운로드 버튼 표시
                 document.getElementById('download-csv').style.display = 'inline-block';
                 document.getElementById('download-pdf').style.display = 'inline-block';
+                // 다운로드 버튼 텍스트 확인
+                document.getElementById('download-pdf').innerHTML = '<i class="fas fa-file-archive me-2"></i> 결과 및 이미지 다운로드(ZIP)';
 
                 // 결과 표시 및 스크롤 이동
                 results.style.display = 'block';
@@ -1163,7 +1162,7 @@
                     if (response.status === 504 || response.status === 408) {
                         throw new Error('ZIP 파일 생성 시간이 초과되었습니다. 다시 시도해 주세요.');
                     } else {
-                        throw new Error('ZIP 다운로드 실패 (코드: ' + response.status + ')');
+                        throw new Error('ZIP 다운로드 실패 (코드: ' + response.status + ') - 응답: ' + await response.text());
                     }
                 }
             } catch (error) {
@@ -1172,7 +1171,7 @@
             } finally {
                 // 버튼 상태 복원
                 this.disabled = false;
-                this.innerHTML = '<i class="fas fa-file-archive me-2"></i> 결과 및 이미지 다운로드 (ZIP)';
+                this.innerHTML = '<i class="fas fa-file-archive me-2"></i> 결과 및 이미지 다운로드(ZIP)';
             }
         });
     </script>

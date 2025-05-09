@@ -1343,7 +1343,7 @@ async def analyze_text(
                         dpi = 200  # 낮은 DPI 설정
                         
                         # 3D 시각화 - 스타일 최적화
-                        fig = plt.figure(figsize=(10, 8), dpi=dpi)
+                        fig = plt.figure(figsize=(8, 6), dpi=dpi)  # 크기 줄임 (10, 8 -> 8, 6)
                         ax = fig.add_subplot(111, projection='3d')
                         
                         # 색상 생성 - 더 구분이 잘 되는 색상 맵 사용
@@ -1504,22 +1504,34 @@ async def analyze_text(
                                         zaxis_title='Z 차원',
                                         aspectratio={'x': 1, 'y': 1, 'z': 1}
                                     ),
-                                    legend=dict(
-                                        font=dict(size=12),
-                                        x=0,
-                                        y=1,
-                                        bgcolor='rgba(255, 255, 255, 0.7)',
-                                        bordercolor='gray',
-                                        borderwidth=1
-                                    ),
+                                    showlegend=False,  # 범례 완전히 제거
                                     margin=dict(l=0, r=0, b=0, t=40),
                                     autosize=True,
                                     width=900,
                                     height=700
                                 )
                                 
+                                # HTML 저장 설정 - 스크롤 방지 및 전체화면 기능 추가
+                                config = {
+                                    'responsive': True,
+                                    'displayModeBar': True,
+                                    'displaylogo': False,
+                                    'scrollZoom': True,
+                                    'modeBarButtonsToAdd': ['toImage', 'resetCameraLastSave3d', 'resetCameraDefault3d'],
+                                    'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'pan2d'],
+                                    'toImageButtonOptions': {
+                                        'format': 'png',
+                                        'filename': '키워드_군집_3D',
+                                        'height': 800,
+                                        'width': 1200,
+                                        'scale': 1.5
+                                    },
+                                    'fullscreen': True,  # 전체화면 모드 활성화
+                                    'modeBarPosition': 'top-left'  # 좌측 상단에 컨트롤 표시
+                                }
+                                
                                 # HTML 저장 - 독립 실행형으로 저장 (CDN 대신 전체 plotly.js 포함)
-                                plot(fig_plotly, filename=interactive_3d_path, auto_open=False, include_plotlyjs=True)
+                                plot(fig_plotly, filename=interactive_3d_path, auto_open=False, include_plotlyjs=True, config=config)
                                 
                                 # 저장된 파일 확인
                                 if os.path.exists(interactive_3d_path):
