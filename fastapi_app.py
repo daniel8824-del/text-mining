@@ -10,6 +10,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from fastapi import Request, BackgroundTasks
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 import pandas as pd
 import shutil
@@ -331,12 +333,31 @@ async def read_root(request: Request):
 
 @app.post("/analyze")
 async def analyze_text(
-    file: UploadFile = File(...),
-    text_column: str = Form(...),
+    request: Request,
+    background_tasks: BackgroundTasks = None,
+    file: Optional[UploadFile] = File(None),
+    text_column: Optional[str] = Form(None),
     pos_tags: Optional[List[str]] = Form(None),
-    stopwords: Optional[str] = Form(None),
-    background_tasks: BackgroundTasks = None
+    stopwords: Optional[str] = Form(None)
 ):
+    # 디버깅용 요청 정보 로깅
+    logger.info("=== 분석 요청 시작 ===")
+    logger.info(f"요청 헤더: {request.headers}")
+    form_data = await request.form()
+    logger.info(f"폼 데이터 키: {list(form_data.keys())}")
+    
+    # 필수 값 검증
+    if not file:
+        logger.error("필수 파일이 제공되지 않았습니다.")
+        raise HTTPException(status_code=400, detail="파일이 제공되지 않았습니다.")
+    
+    if not text_column:
+        logger.error("필수 텍스트 컬럼명이 제공되지 않았습니다.")
+        raise HTTPException(status_code=400, detail="텍스트 컬럼명이 제공되지 않았습니다.")
+    
+    logger.info(f"파일명: {file.filename}, 텍스트 컬럼: {text_column}")
+    logger.info(f"품사 태그: {pos_tags}, 불용어 지정 여부: {'있음' if stopwords else '없음'}")
+    
     # 현재 메모리 상태 확인
     memory_percent = get_memory_usage_percent()
     if memory_percent > MAX_MEMORY_PERCENT:
@@ -1558,6 +1579,25 @@ async def health_check():
         "python_version": sys.version,
         "heavy_modules_loaded": heavy_modules_loaded
     }
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    logger.error(f"요청 유효성 검사 오류: {exc}")
+    # 오류 디테일 로깅
+    for error in exc.errors():
+        logger.error(f"오류 항목: {error}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": str(exc)},
+    )
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    logger.error(f"HTTP 오류: {exc.detail}, 상태 코드: {exc.status_code}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": str(exc.detail)},
+    )
 
 if __name__ == "__main__":
     # 로컬 개발 시 사용
