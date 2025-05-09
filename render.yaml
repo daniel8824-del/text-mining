@@ -14,8 +14,5 @@ services:
       - key: MAX_WORKERS
         value: 4
       - key: MEMORY_LIMIT_MB
-        value: 512
+        value: 2048
     autoDeploy: true
-    # AWS 버전 파일 제외
-    excludeFiles:
-      - fastapi_app_aws.py 

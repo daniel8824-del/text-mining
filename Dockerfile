@@ -42,8 +42,9 @@ RUN mkdir -p /app/uploads /app/static
 # 파일 권한 설정
 RUN chmod -R 777 /app/uploads /app/static
 
-# 포트 설정
-EXPOSE 8000
+# 포트 설정 - 환경 변수 사용
+ENV PORT=8000
+EXPOSE ${PORT}
 
-# 실행 명령
-CMD ["uvicorn", "fastapi_app:app", "--host", "0.0.0.0", "--port", "8000"] 
+# 실행 명령 - 환경 변수 PORT 사용
+CMD uvicorn fastapi_app:app --host 0.0.0.0 --port ${PORT} 

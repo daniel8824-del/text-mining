@@ -116,7 +116,7 @@ POS_OPTIONS = {
 
 # 메모리 관리 설정
 IS_RAILWAY = 'RAILWAY_ENVIRONMENT' in os.environ or 'RAILWAY_SERVICE_NAME' in os.environ
-MEMORY_LIMIT_MB = int(os.environ.get('MEMORY_LIMIT_MB', '500'))  # 기본값 500MB, 환경 변수에서 가져옴
+MEMORY_LIMIT_MB = int(os.environ.get('MEMORY_LIMIT_MB', '2048'))  # 기본값 2048MB(2GB), 환경 변수에서 가져옴
 MAX_MEMORY_PERCENT = 80  # 최대 메모리 사용률 (80%)
 MEMORY_THRESHOLD = MEMORY_LIMIT_MB * 0.8 * 1024 * 1024  # 메모리 임계값 (지정된 한도의 80%)
 MEMORY_CHECK_INTERVAL = 20  # 20초마다 메모리 체크
@@ -1488,4 +1488,6 @@ async def health_check():
 
 if __name__ == "__main__":
     # 로컬 개발 시 사용
-    uvicorn.run("fastapi_app:app", host="0.0.0.0", port=8000, reload=True) 
+    import os
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("fastapi_app:app", host="0.0.0.0", port=port) 
