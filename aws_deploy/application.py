@@ -178,9 +178,9 @@ POS_OPTIONS = {
 # 메모리 관리 설정
 IS_RAILWAY = 'RAILWAY_ENVIRONMENT' in os.environ or 'RAILWAY_SERVICE_NAME' in os.environ
 MEMORY_LIMIT_MB = int(os.environ.get('MEMORY_LIMIT_MB', '4096'))  # 기본값 4096MB(4GB), 환경 변수에서 가져옴
-MAX_MEMORY_PERCENT = 80  # 최대 메모리 사용률 (80%)
-MEMORY_THRESHOLD = MEMORY_LIMIT_MB * 0.8 * 1024 * 1024  # 메모리 임계값 (지정된 한도의 80%)
-MEMORY_CHECK_INTERVAL = 20  # 20초마다 메모리 체크
+MAX_MEMORY_PERCENT = 95  # 최대 메모리 사용률 - 매우 높게 설정 (거의 사용하지 않음)
+MEMORY_THRESHOLD = MEMORY_LIMIT_MB * 0.95 * 1024 * 1024  # 메모리 임계값 (95% - 거의 채워질 때만 정리)
+MEMORY_CHECK_INTERVAL = 60  # 메모리 체크 간격 확장 (1분에 한 번만 체크)
 memory_monitor_running = False
 
 logger.info(f"메모리 제한: {MEMORY_LIMIT_MB}MB, 임계값: {MEMORY_THRESHOLD/(1024*1024):.1f}MB")
@@ -270,7 +270,7 @@ def get_memory_usage_percent():
     
     return process_percent
 
-# 메모리 모니터링 함수
+# 메모리 모니터링 함수 수정
 async def monitor_memory():
     global memory_monitor_running
     
@@ -278,7 +278,7 @@ async def monitor_memory():
         return
     
     memory_monitor_running = True
-    logger.info("메모리 모니터링 시작됨")
+    logger.info("메모리 모니터링 시작됨 (간소화된 버전)")
     
     try:
         while True:
@@ -287,59 +287,26 @@ async def monitor_memory():
             current_memory = memory_info.rss
             memory_percent = get_memory_usage_percent()
             
-            # 메모리 사용률이 임계값을 초과하면 정리 수행
-            if memory_percent > MAX_MEMORY_PERCENT or current_memory > MEMORY_THRESHOLD:
-                logger.warning(f"경고! 메모리 사용량 ({current_memory / 1024 / 1024:.2f} MB, {memory_percent:.1f}%)이 임계값을 초과하여 정리합니다.")
-                clean_memory()
-                
-                # 메모리 정리 후에도 여전히 높은 경우 추가 조치
-                if get_memory_usage_percent() > MAX_MEMORY_PERCENT:
-                    logger.warning("메모리 사용률이 여전히 높습니다. 추가 정리 작업 수행...")
-                    # 추가 메모리 정리: 이미지 캐시 정리
-                    plt.close('all')  # 열려있는 모든 matplotlib 그림 닫기
-                    
-                    # 파이썬 자체 캐시 정리
-                    for module in list(sys.modules.values()):
-                        if hasattr(module, 'clear_cache'):
-                            try:
-                                module.clear_cache()
-                            except:
-                                pass
-                    
-                    # 임시 파일 정리 (최근 생성된 파일도 포함)
-                    try:
-                        for root, dirs, files in os.walk(STATIC_DIR):
-                            for file in files:
-                                if (file.startswith("wordcloud_") or 
-                                    file.startswith("network_") or 
-                                    file.startswith("temp_") or 
-                                    file.startswith("bubble_") or 
-                                    file.startswith("clustering_")):
-                                    try:
-                                        file_path = os.path.join(root, file)
-                                        # 1시간 이상 된 파일만 삭제
-                                        if (time.time() - os.path.getctime(file_path)) > 3600:
-                                            os.remove(file_path)
-                                            logger.info(f"오래된 임시 파일 삭제: {file}")
-                                    except Exception as e:
-                                        logger.error(f"파일 삭제 오류: {e}")
-                    except Exception as e:
-                        logger.error(f"임시 파일 정리 오류: {e}")
-                    
-                    # 마지막 수단: 강제 가비지 컬렉션
-                    gc.collect(generation=2)
+            # 매우 높은 임계값에서만 메모리 정리 수행 (위험 수준)
+            if memory_percent > 95:
+                logger.warning(f"심각한 메모리 부족! 사용량: {current_memory / 1024 / 1024:.2f} MB ({memory_percent:.1f}%)")
+                # 최소한의 메모리 정리만 수행
+                gc.collect()
             
-            # 주기적으로 메모리 상태 로깅
-            logger.info(f"현재 메모리 사용량: {current_memory / 1024 / 1024:.2f} MB ({memory_percent:.1f}%)")
+            # 주기적으로 메모리 상태만 로깅
+            if memory_percent > 80:
+                logger.info(f"높은 메모리 사용량: {current_memory / 1024 / 1024:.2f} MB ({memory_percent:.1f}%)")
+            else:
+                logger.info(f"현재 메모리 사용량: {current_memory / 1024 / 1024:.2f} MB ({memory_percent:.1f}%)")
             
-            # 일정 시간 대기
+            # 오래 대기 (1분)
             await asyncio.sleep(MEMORY_CHECK_INTERVAL)
     except Exception as e:
         logger.error(f"메모리 모니터링 오류: {e}")
         logger.error(traceback.format_exc())
     finally:
         memory_monitor_running = False
-        # 오류 발생 시 재시작
+        # 오류 발생 시 재시작 (5초 후)
         await asyncio.sleep(5)
         asyncio.create_task(monitor_memory())
 
@@ -360,15 +327,15 @@ def print_memory_info():
 
 print_memory_info()
 
-# 메모리 정리 함수
+# 메모리 정리 함수 간소화
 def clean_memory():
     # 메모리 정리 전 사용량 출력
-    logger.info("메모리 정리 시작")
+    logger.info("메모리 정리 시작 (최소화된 정리)")
     process = psutil.Process()
     before_memory = process.memory_info().rss / 1024 / 1024
     logger.info(f"정리 전 메모리 사용량: {before_memory:.2f} MB")
     
-    # 메모리 정리
+    # 메모리 정리 (최소화)
     gc.collect()
     
     # 메모리 정리 후 사용량 출력
@@ -915,7 +882,11 @@ async def analyze_text(
             
         # 10. 키워드 중심성 분석
         try:
-            if network and len(network.nodes()) > 5:  # 최소한의 노드가 있는지 확인
+            # network 변수가 정의되었는지 확인
+            network = None  # 초기값 설정
+            
+            # 이전 단계에서 생성된 네트워크가 있는지 확인
+            if 'network' in locals() and network is not None and len(network.nodes()) > 5:
                 # 중심성 계산
                 degree_centrality = nx.degree_centrality(network)
                 betweenness_centrality = nx.betweenness_centrality(network, k=10)
@@ -972,6 +943,7 @@ async def analyze_text(
                     results['centrality_path'] = ''
             else:
                 results['centrality_path'] = ''
+                logger.info("중심성 분석을 위한 네트워크가 없거나 노드 수가 부족합니다.")
         except Exception as centrality_error:
             logger.error(f"중심성 분석 오류: {centrality_error}")
             logger.error(traceback.format_exc())
@@ -1261,13 +1233,38 @@ async def analyze_text(
                         logger.info(f"3D 시각화 데이터 크기: {n_samples} 문서, {n_features} 특성")
                         
                         # 청크 처리를 위한 설정
-                        chunk_size = 50  # 한 번에 처리할 문서 수
+                        chunk_size = 30  # 더 작은 청크 크기 (50 → 30)
                         total_chunks = (n_samples + chunk_size - 1) // chunk_size  # 올림 나눗셈
                         logger.info(f"청크 단위 처리: 총 {total_chunks}개 청크 (청크 크기: {chunk_size})")
                         
                         # 전체 결과를 저장할 변수
                         all_tsne_results = []
                         all_cluster_labels = []
+                        
+                        # 데이터 크기가 너무 크면 샘플링
+                        max_total_samples = 300  # 최대 샘플 수 제한
+                        if n_samples > max_total_samples:
+                            logger.info(f"대용량 데이터 감지: {n_samples} 문서를 {max_total_samples}개로 샘플링")
+                            sample_indices = np.random.choice(n_samples, max_total_samples, replace=False)
+                            sample_indices.sort()  # 인덱스 정렬
+                            
+                            # 샘플링된 행렬 생성
+                            if hasattr(analyzer.tf_idf_matrix, 'toarray'):
+                                sampled_matrix = analyzer.tf_idf_matrix[sample_indices].toarray()
+                            else:
+                                sampled_matrix = analyzer.tf_idf_matrix[sample_indices]
+                                
+                            # 샘플링 후 원본 변수 재설정
+                            n_samples = len(sample_indices)
+                            chunk_size = min(chunk_size, n_samples // 3)  # 청크 크기 재조정
+                            chunk_size = max(chunk_size, 10)  # 최소 10개
+                            total_chunks = (n_samples + chunk_size - 1) // chunk_size
+                            logger.info(f"샘플링 후 청크 설정: {total_chunks}개 청크 (청크 크기: {chunk_size})")
+                            
+                            # 메모리 즉시 정리
+                            gc.collect()
+                        else:
+                            sampled_matrix = None  # 샘플링하지 않을 경우
                         
                         # 청크 단위로 처리
                         for chunk_idx in range(total_chunks):
@@ -1277,23 +1274,36 @@ async def analyze_text(
                             
                             logger.info(f"청크 {chunk_idx+1}/{total_chunks} 처리 중 (인덱스 {start_idx}~{end_idx-1})")
                             
-                            # 현재 청크 추출
-                            if hasattr(analyzer.tf_idf_matrix, 'toarray'):
-                                chunk_matrix = analyzer.tf_idf_matrix[start_idx:end_idx].toarray()
+                            # 현재 청크 추출 (샘플링 여부에 따라 다름)
+                            if sampled_matrix is not None:
+                                chunk_matrix = sampled_matrix[start_idx:end_idx]
                             else:
-                                chunk_matrix = analyzer.tf_idf_matrix[start_idx:end_idx]
+                                if hasattr(analyzer.tf_idf_matrix, 'toarray'):
+                                    chunk_matrix = analyzer.tf_idf_matrix[start_idx:end_idx].toarray()
+                                else:
+                                    chunk_matrix = analyzer.tf_idf_matrix[start_idx:end_idx]
                             
                             # perplexity 안전하게 설정 (청크 크기에 맞게)
-                            chunk_perplexity = min(30, max(5, current_chunk_size // 3))
+                            chunk_perplexity = min(15, max(3, current_chunk_size // 5))  # 더 작은 perplexity 사용
                             if chunk_perplexity >= current_chunk_size:
                                 chunk_perplexity = max(2, current_chunk_size - 1)
                             
+                            logger.info(f"청크 {chunk_idx+1} t-SNE 설정: perplexity={chunk_perplexity}")
+                            
                             # t-SNE로 3D 차원 축소 (현재 청크만)
-                            tsne_3d = TSNE(n_components=3, random_state=42, perplexity=chunk_perplexity)
+                            tsne_3d = TSNE(n_components=3, random_state=42, 
+                                          perplexity=chunk_perplexity,
+                                          n_iter=500,  # 반복 횟수 감소
+                                          n_iter_without_progress=100,  # 진전 없는 반복 제한
+                                          learning_rate='auto')  # 자동 학습률
                             chunk_tsne_results = tsne_3d.fit_transform(chunk_matrix)
                             
+                            # 메모리 정리
+                            del chunk_matrix
+                            gc.collect()
+                            
                             # 군집화 (현재 청크만)
-                            n_clusters = min(4, current_chunk_size)
+                            n_clusters = min(3, current_chunk_size)  # 클러스터 수 제한 (4→3)
                             kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=1)
                             chunk_labels = kmeans.fit_predict(chunk_tsne_results)
                             
@@ -1302,7 +1312,7 @@ async def analyze_text(
                             all_cluster_labels.append(chunk_labels)
                             
                             # 메모리 정리
-                            del chunk_matrix, chunk_tsne_results, chunk_labels
+                            del chunk_tsne_results, chunk_labels
                             gc.collect()
                             
                             logger.info(f"청크 {chunk_idx+1} 처리 완료, 메모리 정리됨")

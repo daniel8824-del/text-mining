@@ -1,1 +1,1 @@
-web: MEMORY_LIMIT_MB=3584 gunicorn -w 1 -k uvicorn.workers.UvicornWorker application:app 
+web: MEMORY_LIMIT_MB=4096 gunicorn -w 2 -k uvicorn.workers.UvicornWorker --timeout 300 --keep-alive 65 --worker-tmp-dir /dev/shm application:app 
