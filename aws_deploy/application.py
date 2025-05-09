@@ -569,41 +569,10 @@ async def analyze_text(
             logger.error(traceback.format_exc())
             results['wordcloud_path'] = ''
             
-        # 6. 키워드 네트워크 분석
+        # 6. 키워드 네트워크 분석 (원래 코드로 복원)
         try:
-            # 데이터 크기에 따라 네트워크 분석 매개변수 조정
-            network_threshold = 2  # 기본값
-            network_top_n = 30  # 기본값
-            
-            # 대용량 데이터 감지
-            if hasattr(analyzer, 'word_freq') and len(analyzer.word_freq) > 5000:
-                # 대용량 데이터에서는 임계값 올리고 노드 수 제한
-                logger.info("대용량 데이터 감지: 네트워크 분석 매개변수 조정")
-                network_threshold = 3  # 더 엄격한 임계값
-                network_top_n = 20  # 노드 수 제한
-            
-            # 메모리 효율적인 네트워크 분석
-            logger.info(f"네트워크 분석 시작: 임계값={network_threshold}, 최대 노드={network_top_n}")
-            
-            network = analyzer.keyword_network_analysis(threshold=network_threshold, top_n=network_top_n)
+            network = analyzer.keyword_network_analysis(threshold=2, top_n=30)
             if network:
-                # 메모리 효율성을 위해 네트워크 노드 수 제한
-                if len(network.nodes()) > 50:
-                    logger.info(f"대용량 네트워크 감지: {len(network.nodes())}개 노드, 상위 50개로 제한")
-                    # 중요도(가중치) 기준으로 상위 노드만 유지
-                    node_weights = {node: network.nodes[node].get('size', 0) for node in network.nodes()}
-                    top_nodes = sorted(node_weights.items(), key=lambda x: x[1], reverse=True)[:50]
-                    top_nodes_set = {node for node, _ in top_nodes}
-                    
-                    # 하위 노드 제거
-                    nodes_to_remove = [node for node in network.nodes() if node not in top_nodes_set]
-                    for node in nodes_to_remove:
-                        network.remove_node(node)
-                    
-                    logger.info(f"네트워크 노드 제한 완료: {len(network.nodes())}개 노드 유지")
-                    # 메모리 정리
-                    gc.collect()
-                
                 # 네트워크 시각화 결과 경로
                 network_path = os.path.join(STATIC_DIR, f'network_{unique_filename}.png')
                 logger.info(f"네트워크 그래프 저장 경로: {network_path}")
@@ -633,8 +602,8 @@ async def analyze_text(
                     except Exception as font_err:
                         logger.error(f"네트워크 그래프 폰트 설정 오류: {font_err}")
                     
-                    # 네트워크 시각화 - 저해상도로 설정하여 메모리 절약
-                    plt.figure(figsize=(10, 8), dpi=100)
+                    # 네트워크 시각화
+                    plt.figure(figsize=(10, 8))
                     analyzer.plot_network(network)
                     
                     # 네트워크 그래프 저장
@@ -653,7 +622,7 @@ async def analyze_text(
                     logger.error(traceback.format_exc())
                     results['network_path'] = ''
                 
-                # 네트워크 노드 정보 추가 - 메모리 효율성을 위해 상위 20개만 추출
+                # 네트워크 노드 정보 추가
                 node_data = []
                 for node in network.nodes():
                     node_data.append({
@@ -661,10 +630,6 @@ async def analyze_text(
                         'size': network.nodes[node]['size']
                     })
                 results['network_nodes'] = sorted(node_data, key=lambda x: x['size'], reverse=True)[:20]
-                
-                # 명시적 메모리 정리
-                del network, node_data
-                gc.collect()
             else:
                 results['network_path'] = ''
                 results['network_nodes'] = []
@@ -949,7 +914,7 @@ async def analyze_text(
             logger.error(traceback.format_exc())
             results['centrality_path'] = ''
         
-        # 11. 클러스터링 분석 (고급 분석 탭)
+        # 11. 클러스터링 분석 (고급 분석 탭) - 3D 클러스터링 부분 수정
         try:
             # 데이터가 충분한지 확인
             if analyzer.tf_idf_matrix is not None and analyzer.tf_idf_matrix.shape[0] > 5:
@@ -1199,6 +1164,7 @@ async def analyze_text(
                 
                 # 3) 키워드 군집 3D 시각화
                 clusters3d_path = os.path.join(STATIC_DIR, f'clusters3d_{unique_filename}.png')
+                clusters2d_path = os.path.join(STATIC_DIR, f'clusters2d_{unique_filename}.png')
                 
                 try:
                     # 한글 폰트 설정 - 명시적으로 여기서 다시 설정
@@ -1292,18 +1258,18 @@ async def analyze_text(
                             
                             # t-SNE로 3D 차원 축소 (현재 청크만)
                             tsne_3d = TSNE(n_components=3, random_state=42, 
-                                          perplexity=chunk_perplexity,
-                                          n_iter=500,  # 반복 횟수 감소
-                                          n_iter_without_progress=100,  # 진전 없는 반복 제한
-                                          learning_rate='auto')  # 자동 학습률
+                                           perplexity=chunk_perplexity,
+                                           n_iter=500,  # 반복 횟수 감소
+                                           n_iter_without_progress=100,  # 진전 없는 반복 제한
+                                           learning_rate='auto')  # 자동 학습률
                             chunk_tsne_results = tsne_3d.fit_transform(chunk_matrix)
                             
                             # 메모리 정리
                             del chunk_matrix
                             gc.collect()
                             
-                            # 군집화 (현재 청크만)
-                            n_clusters = min(3, current_chunk_size)  # 클러스터 수 제한 (4→3)
+                            # 군집화 (현재 청크만, n_clusters는 5개로 제한)
+                            n_clusters = min(3, current_chunk_size)  # 클러스터 수 제한
                             kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=1)
                             chunk_labels = kmeans.fit_predict(chunk_tsne_results)
                             
@@ -1336,58 +1302,136 @@ async def analyze_text(
                         del all_tsne_results, all_cluster_labels
                         gc.collect()
                         
-                        # 최종 군집 수 계산
-                        n_clusters = len(np.unique(cluster_labels))
-                        logger.info(f"최종 클러스터 수: {n_clusters}")
+                        # 최종 클러스터 수가 5개를 넘지 않도록 제한 - 새로운 K-means 적용
+                        final_n_clusters = min(5, len(np.unique(cluster_labels)))
+                        logger.info(f"최종 클러스터 수를 {final_n_clusters}개로 제한합니다.")
+                        
+                        # 최종 클러스터링 - 차원 축소된 결과에 대해 다시 클러스터링
+                        final_kmeans = KMeans(n_clusters=final_n_clusters, random_state=42, n_init=1)
+                        final_labels = final_kmeans.fit_predict(tsne_results_3d)
+                        
+                        # 각 클러스터의 주요 키워드 추출 
+                        cluster_keywords = []
+                        
+                        # 각 클러스터에 해당하는 문서 인덱스 찾기
+                        for cluster_idx in range(final_n_clusters):
+                            # 이 클러스터에 속하는 문서 인덱스
+                            doc_indices = np.where(final_labels == cluster_idx)[0]
+                            
+                            # 클러스터가 비어있지 않은 경우에만 처리
+                            if len(doc_indices) > 0:
+                                # 이 클러스터 문서들의 단어 빈도 계산
+                                word_freq = {}
+                                
+                                for doc_idx in doc_indices:
+                                    if doc_idx < len(analyzer.tokenized_corpus):
+                                        for word in analyzer.tokenized_corpus[doc_idx]:
+                                            word_freq[word] = word_freq.get(word, 0) + 1
+                                
+                                # 상위 5개 키워드 추출
+                                top_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)[:5]
+                                cluster_keywords.append([word for word, _ in top_words])
+                            else:
+                                cluster_keywords.append(["키워드 없음"])
                         
                         # 저해상도로 시각화
-                        dpi = 100  # 낮은 DPI 설정
+                        dpi = 200  # 낮은 DPI 설정
                         
-                        # 3D 시각화
+                        # 3D 시각화 - 스타일 최적화
                         fig = plt.figure(figsize=(10, 8), dpi=dpi)
                         ax = fig.add_subplot(111, projection='3d')
                         
-                        # 색상 생성
-                        colors_3d = plt.cm.jet(np.linspace(0, 1, n_clusters))
+                        # 색상 생성 - 더 구분이 잘 되는 색상 맵 사용
+                        colors_3d = plt.cm.tab10(np.linspace(0, 1, final_n_clusters))
                         
-                        # 각 클러스터 그리기
-                        for i, label in enumerate(np.unique(cluster_labels)):
-                            indices = cluster_labels == label
+                        # 각 클러스터 그리기 - 주요 키워드 표시
+                        for i in range(final_n_clusters):
+                            indices = final_labels == i
                             # 대용량 데이터는 샘플링
                             if np.sum(indices) > 100:
                                 sample_idx = np.random.choice(np.where(indices)[0], 100, replace=False)
                                 xs = tsne_results_3d[sample_idx, 0]
                                 ys = tsne_results_3d[sample_idx, 1]
                                 zs = tsne_results_3d[sample_idx, 2]
+                                
+                                # 클러스터 중심점 계산
+                                center_x = np.mean(xs)
+                                center_y = np.mean(ys)
+                                center_z = np.mean(zs)
                             else:
                                 xs = tsne_results_3d[indices, 0]
                                 ys = tsne_results_3d[indices, 1]
                                 zs = tsne_results_3d[indices, 2]
                                 
+                                # 클러스터 중심점 계산
+                                center_x = np.mean(xs)
+                                center_y = np.mean(ys)
+                                center_z = np.mean(zs)
+                                
                             if len(xs) > 0:  # 점이 있는지 확인
-                                ax.scatter(xs, ys, zs, 
-                                           c=[colors_3d[i % len(colors_3d)]], 
+                                # 더 큰 점으로 표시하고 투명도 낮춤
+                                scatter = ax.scatter(xs, ys, zs, 
+                                           c=[colors_3d[i]], 
                                            label=f'클러스터 {i+1}', 
-                                           s=30, alpha=0.7)
+                                           s=40, alpha=0.8,
+                                           edgecolors='w')
+                                
+                                # 클러스터 중심에 키워드 표시
+                                if len(cluster_keywords[i]) > 0:
+                                    keyword_text = f"#{i+1}: {', '.join(cluster_keywords[i][:3])}"
+                                    ax.text(center_x, center_y, center_z, keyword_text, 
+                                            fontsize=9, ha='center', va='center',
+                                            bbox=dict(facecolor='white', alpha=0.7, boxstyle='round'))
                         
-                        ax.set_title('키워드 군집 3D 시각화', fontsize=14)
-                        ax.view_init(35, 45)  # 시각화 각도 조정
+                        ax.set_title('키워드 군집 3D 시각화 (클러스터 5개로 제한)', fontsize=14)
+                        ax.view_init(30, 45)  # 시각화 각도 조정
                         
-                        # 범례 최적화 (클러스터가 너무 많으면 범례 생략)
-                        if n_clusters <= 10:
-                            ax.legend(fontsize=8)
-                        else:
-                            # 일부 클러스터만 범례에 표시
-                            handles, labels = ax.get_legend_handles_labels()
-                            ax.legend(handles[:10], labels[:10], fontsize=8, title="주요 클러스터")
+                        # 범례 추가 - 모든 클러스터 표시
+                        ax.legend(fontsize=9, title="클러스터 구분", loc='upper right')
                         
-                        ax.grid(True)
+                        ax.grid(True, linestyle='--', alpha=0.5)  # 그리드 스타일 개선
                         plt.tight_layout()
                         plt.savefig(clusters3d_path, bbox_inches='tight', dpi=dpi)
                         plt.close()
                         
+                        # 2D 투영 시각화 추가 (X-Y 평면) - 더 쉽게 구분 가능
+                        plt.figure(figsize=(10, 8), dpi=dpi)
+                        
+                        # 색상 설정은 3D와 동일하게 유지
+                        for i in range(final_n_clusters):
+                            indices = final_labels == i
+                            plt.scatter(tsne_results_3d[indices, 0], 
+                                       tsne_results_3d[indices, 1],
+                                       c=[colors_3d[i]],
+                                       label=f'클러스터 {i+1}',
+                                       s=50, alpha=0.8,
+                                       edgecolors='w')
+                            
+                            # 클러스터 중심 계산
+                            if np.sum(indices) > 0:
+                                center_x = np.mean(tsne_results_3d[indices, 0])
+                                center_y = np.mean(tsne_results_3d[indices, 1])
+                                
+                                # 키워드 표시
+                                if len(cluster_keywords[i]) > 0:
+                                    keyword_text = f"#{i+1}: {', '.join(cluster_keywords[i][:3])}"
+                                    plt.annotate(keyword_text, 
+                                                (center_x, center_y),
+                                                fontsize=9,
+                                                bbox=dict(facecolor='white', alpha=0.7, boxstyle='round'),
+                                                ha='center', va='center')
+                        
+                        plt.title('키워드 군집 2D 투영 시각화 (X-Y 평면)', fontsize=14)
+                        plt.xlabel('X 차원', fontsize=12)
+                        plt.ylabel('Y 차원', fontsize=12)
+                        plt.legend(fontsize=9, title="클러스터 구분")
+                        plt.grid(True, linestyle='--', alpha=0.5)
+                        plt.tight_layout()
+                        plt.savefig(clusters2d_path, bbox_inches='tight', dpi=dpi)
+                        plt.close()
+                        
                         # 명시적 메모리 정리
-                        del tsne_results_3d, cluster_labels
+                        del tsne_results_3d, final_labels
                         gc.collect()
                         
                         # 파일 생성 확인
@@ -1397,13 +1441,23 @@ async def analyze_text(
                         else:
                             logger.warning("3D 시각화 이미지 생성 실패")
                             results['clusters3d_path'] = ''
+                            
+                        # 2D 시각화 결과 추가
+                        if os.path.exists(clusters2d_path):
+                            logger.info(f"2D 시각화 이미지 생성 완료: {clusters2d_path}")
+                            results['clusters2d_path'] = f'/static/clusters2d_{unique_filename}.png'
+                        else:
+                            logger.warning("2D 시각화 이미지 생성 실패")
+                            results['clusters2d_path'] = ''
                     else:
                         logger.warning("3D 시각화를 위한 충분한 데이터가 없습니다.")
                         results['clusters3d_path'] = ''
+                        results['clusters2d_path'] = ''
                 except Exception as viz3d_error:
                     logger.error(f"3D 시각화 생성 오류: {viz3d_error}")
                     logger.error(traceback.format_exc())
                     results['clusters3d_path'] = ''
+                    results['clusters2d_path'] = ''
             else:
                 logger.warning("고급 분석을 위한 충분한 데이터가 없습니다.")
                 results['clustering_path'] = ''
