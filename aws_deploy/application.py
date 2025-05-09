@@ -1343,7 +1343,7 @@ async def analyze_text(
                         dpi = 200  # 낮은 DPI 설정
                         
                         # 3D 시각화 - 스타일 최적화
-                        fig = plt.figure(figsize=(8, 6), dpi=dpi)  # 크기 줄임 (10, 8 -> 8, 6)
+                        fig = plt.figure(figsize=(6, 5), dpi=dpi)  # 크기 조정 (6, 5 -> 7, 6)
                         ax = fig.add_subplot(111, projection='3d')
                         
                         # 색상 생성 - 더 구분이 잘 되는 색상 맵 사용
@@ -1378,7 +1378,7 @@ async def analyze_text(
                                 scatter = ax.scatter(xs, ys, zs, 
                                            c=[colors_3d[i]], 
                                            label=f'클러스터 {i+1}', 
-                                           s=40, alpha=0.8,
+                                           s=30, alpha=0.7,  # 점 크기와 투명도 조정 (40,0.8 → 30,0.7)
                                            edgecolors='w')
                                 
                                 # 클러스터 중심에 키워드 표시
@@ -1391,42 +1391,44 @@ async def analyze_text(
                                     # 클러스터 이름 형식 변경 - 더 간결하게
                                     cluster_name = f'#{i+1}: {keywords_text}'
                                     
-                                    keywords_text = ', '.join(cluster_keywords[i][:3])
-                                    if len(keywords_text) > 30:  # 최대 30자로 제한
-                                        keywords_text = keywords_text[:27] + "..."
-                                        
-                                    keyword_text = f"#{i+1}: {keywords_text}"
-                                    
                                     # 클러스터 간 오프셋을 더 크게 설정하여 겹치지 않도록 함
-                                    text_offset_x = center_x + (i * 30)  # x 방향 오프셋 증가 (20→30)
-                                    text_offset_y = center_y + (i * 40)  # y 방향 오프셋 증가 (25→40)
-                                    text_offset_z = center_z + (i * 40)  # z 방향 오프셋 증가 (30→40)
+                                    text_offset_x = center_x + (i * 25)  # x 방향 오프셋 감소 (30→25)
+                                    text_offset_y = center_y + (i * 30)  # y 방향 오프셋 감소 (40→30)
+                                    text_offset_z = center_z + (i * 30)  # z 방향 오프셋 감소 (40→30)
                                     
                                     # 텍스트 박스 스타일 개선 - 패딩 추가 및 투명도 증가
-                                    text_obj = ax.text(text_offset_x, text_offset_y, text_offset_z, keyword_text, 
-                                            fontsize=11,  # 폰트 크기 증가 (10→11)
+                                    text_obj = ax.text(text_offset_x, text_offset_y, text_offset_z, cluster_name, 
+                                            fontsize=9,  # 폰트 크기 감소 (11→9)
                                             ha='center', va='center',
-                                            bbox=dict(facecolor='white', alpha=0.98, boxstyle='round,pad=0.8',
-                                                     edgecolor='gray', linewidth=1.5))
+                                            bbox=dict(facecolor='white', alpha=0.95, boxstyle='round,pad=0.6',
+                                                     edgecolor='gray', linewidth=1.0))
                                     
                                     # 클러스터 중심과 텍스트 박스 연결선 추가 (점선) - 더 뚜렷하게
                                     ax.plot([center_x, text_offset_x], [center_y, text_offset_y], [center_z, text_offset_z], 
-                                           'gray', linestyle='--', linewidth=1.3, alpha=0.8)
+                                           'gray', linestyle='--', linewidth=1.0, alpha=0.7)
                         
-                        ax.set_title('키워드 군집 3D 시각화', fontsize=15)  # 제목 폰트 크기 증가
+                        ax.set_title('키워드 군집 3D 시각화', fontsize=12)  # 제목 폰트 크기 감소 (15→14)
                         ax.view_init(30, 45)  # 시각화 각도 조정
                         
                         # 범례 추가 - 모든 클러스터 표시
-                        ax.legend(fontsize=10, title="클러스터 구분", loc='upper right')
+                        ax.legend(fontsize=9, title="클러스터 구분", loc='upper right')  # 폰트 크기 감소 (10→9)
                         
                         # 그리드 스타일 개선 및 축 레이블 추가
                         ax.grid(True, linestyle='--', alpha=0.5)
-                        ax.set_xlabel('X 차원', fontsize=12)
-                        ax.set_ylabel('Y 차원', fontsize=12)
-                        ax.set_zlabel('Z 차원', fontsize=12)
+                        ax.set_xlabel('X 차원', fontsize=12, labelpad=10)
+                        ax.set_ylabel('Y 차원', fontsize=12, labelpad=10)
+                        ax.set_zlabel('Z 차원', fontsize=12, labelpad=10)  # Z축 레이블 설정 개선
+                        
+                        # 축 레이블 위치 조정 (Z축이 잘 보이도록)
+                        ax.xaxis.set_rotate_label(False)
+                        ax.yaxis.set_rotate_label(False)
+                        ax.zaxis.set_rotate_label(False)
+                        
+                        # 여백 설정 증가
+                        plt.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.95)
                         
                         # 테두리 여백 추가
-                        plt.tight_layout(pad=2.5)
+                        plt.tight_layout(pad=3.0)  # 여백 값 증가 (2.5→3.0)
                         
                         # 이미지 저장 - bbox_inches='tight'로 모든 요소가 포함되도록 함
                         try:
@@ -1461,9 +1463,9 @@ async def analyze_text(
                                     
                                     if len(cluster_points) > 0:
                                         # 키워드 텍스트 길이 제한
-                                        keywords_str = ", ".join(cluster_keywords[i][:2])  # 3개에서 2개로 줄임
-                                        if len(keywords_str) > 15:  # 최대 길이 제한
-                                            keywords_str = keywords_str[:12] + "..."
+                                        keywords_str = ", ".join(cluster_keywords[i][:3])  # 3개에서 2개로 줄임
+                                        if len(keywords_str) > 20:  # 최대 길이 제한
+                                            keywords_str = keywords_str[:17] + "..."
                                             
                                         # 간결한 형식으로 변경
                                         cluster_name = f'#{i+1}: {keywords_str}'
@@ -1504,11 +1506,21 @@ async def analyze_text(
                                         zaxis_title='Z 차원',
                                         aspectratio={'x': 1, 'y': 1, 'z': 1}
                                     ),
-                                    showlegend=False,  # 범례 완전히 제거
-                                    margin=dict(l=0, r=0, b=0, t=40),
-                                    autosize=True,
-                                    width=900,
-                                    height=700
+                                    showlegend=True,  # 범례 표시로 변경
+                                    legend=dict(
+                                        title="클러스터 구분",
+                                        orientation="h",  # 수평 방향 범례
+                                        yanchor="bottom",
+                                        y=1.02,  # 그래프 위에 위치
+                                        xanchor="center",
+                                        x=0.5,
+                                        font=dict(size=12),
+                                        itemsizing='constant'  # 항목 크기 일정하게
+                                    ),
+                                    margin=dict(l=10, r=10, b=10, t=50, pad=0),  # 여백 최소화
+                                    autosize=False,  # 자동 크기 조정 비활성화
+                                    width=800,  # 너비 감소
+                                    height=600  # 높이 감소
                                 )
                                 
                                 # HTML 저장 설정 - 스크롤 방지 및 전체화면 기능 추가
@@ -1526,12 +1538,67 @@ async def analyze_text(
                                         'width': 1200,
                                         'scale': 1.5
                                     },
-                                    'fullscreen': True,  # 전체화면 모드 활성화
-                                    'modeBarPosition': 'top-left'  # 좌측 상단에 컨트롤 표시
+                                    'fullscreen': True  # 전체화면 모드 활성화
                                 }
                                 
                                 # HTML 저장 - 독립 실행형으로 저장 (CDN 대신 전체 plotly.js 포함)
-                                plot(fig_plotly, filename=interactive_3d_path, auto_open=False, include_plotlyjs=True, config=config)
+                                # 스크롤바 없는 깔끔한 HTML 생성을 위한 사용자 정의 HTML 템플릿
+                                with open(interactive_3d_path, 'w', encoding='utf-8') as f:
+                                    html_content = f"""
+                                    <!DOCTYPE html>
+                                    <html>
+                                    <head>
+                                        <meta charset="utf-8">
+                                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                                        <title>키워드 군집 인터랙티브 3D 시각화</title>
+                                        <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+                                        <style>
+                                            body {{
+                                                margin: 0;
+                                                padding: 0;
+                                                overflow: hidden;
+                                                width: 100%;
+                                                height: 100vh;
+                                            }}
+                                            #plotly-graph {{
+                                                width: 100%;
+                                                height: 100%;
+                                            }}
+                                            .plotly-legend {{
+                                                font-family: Arial, sans-serif;
+                                                font-size: 12px;
+                                            }}
+                                        </style>
+                                    </head>
+                                    <body>
+                                        <div id="plotly-graph"></div>
+                                        <script>
+                                            var config = {config};
+                                            var data = {fig_plotly.data};
+                                            var layout = {fig_plotly.layout};
+                                            
+                                            // 범례를 위한 추가 레이아웃 설정
+                                            layout.legend = {{
+                                                title: {{text: "클러스터 구분"}},
+                                                orientation: "h",
+                                                yanchor: "bottom",
+                                                y: 1.02,
+                                                xanchor: "center",
+                                                x: 0.5,
+                                                font: {{size: 12}}
+                                            }};
+                                            
+                                            Plotly.newPlot('plotly-graph', data, layout, config);
+                                            
+                                            // 전체 화면 모드 지원
+                                            document.addEventListener('fullscreenchange', function() {{
+                                                Plotly.Plots.resize(document.getElementById('plotly-graph'));
+                                            }});
+                                        </script>
+                                    </body>
+                                    </html>
+                                    """
+                                    f.write(html_content)
                                 
                                 # 저장된 파일 확인
                                 if os.path.exists(interactive_3d_path):
@@ -1647,11 +1714,13 @@ async def download_zip(html_content: str = Form(...)):
         memory_percent = get_memory_usage_percent()
         logger.info(f"HTML 다운로드 요청 - 현재 메모리 사용률: {memory_percent:.1f}%")
         
-        # 임시 폴더 생성 (애플리케이션 폴더 내에)
+        # 임시 폴더 생성 (고유 ID 사용)
         temp_dir_name = f"temp_zip_{uuid.uuid4()}"
         temp_dir = os.path.join(STATIC_DIR, temp_dir_name)
         os.makedirs(temp_dir, exist_ok=True)
+        logger.info(f"임시 폴더 생성: {temp_dir}")
         
+        # ZIP 파일 경로 설정
         zip_path = os.path.join(temp_dir, "텍스트_분석_결과.zip")
         logger.info(f"ZIP 파일 생성 경로: {zip_path}")
         
@@ -1722,7 +1791,7 @@ async def download_zip(html_content: str = Form(...)):
                               r'<div class="tab-pane show active" id="\1"', 
                               enhanced_html)
         
-        # 3. JavaScript 추가 (HTML <body> 끝 부분에 추가) - 보험으로 남겨둠
+        # 3. JavaScript 추가 (HTML <body> 끝 부분에 추가)
         script_content = """
         <script>
             // 페이지 로드 시 실행
@@ -1751,7 +1820,6 @@ async def download_zip(html_content: str = Form(...)):
         if '</body>' in enhanced_html:
             enhanced_html = enhanced_html.replace('</body>', f'{script_content}</body>')
         else:
-            # HTML에 <body> 태그가 없을 경우 추가
             enhanced_html = f'{enhanced_html}<script>{script_content}</script>'
         
         # 수정된 HTML 저장
@@ -1761,20 +1829,24 @@ async def download_zip(html_content: str = Form(...)):
         
         logger.info(f"HTML 파일 저장 완료: {html_path}")
         
-        # 이미지 파일 복사 (from static 폴더)
-        # 이미지 파일 경로 추출
+        # 이미지 파일 경로 추출 - src 속성에서 모든 정적 파일 찾기
         img_paths = re.findall(r'src="(/static/[^"]+)"', enhanced_html)
-        logger.info(f"발견된 이미지 파일 수: {len(img_paths)}")
+        logger.info(f"발견된 이미지/정적 파일 수: {len(img_paths)}")
         
-        # iframe에서 참조하는 인터랙티브 HTML 파일 추출
-        iframe_paths = re.findall(r'<iframe\s+src="(/static/[^"]+\.html)"', enhanced_html)
-        logger.info(f"발견된 인터랙티브 HTML 파일 수: {len(iframe_paths)}")
+        # href 속성에서도 정적 파일 찾기 (CSS 등)
+        href_paths = re.findall(r'href="(/static/[^"]+)"', enhanced_html)
+        logger.info(f"발견된 href 참조 파일 수: {len(href_paths)}")
         
-        # 모든 참조 파일 목록 (이미지 + HTML)
-        all_reference_files = img_paths + iframe_paths
+        # iframe에서 참조하는 HTML 파일 추출
+        iframe_paths = re.findall(r'<iframe\s+src="(/static/[^"]+)"', enhanced_html)
+        logger.info(f"발견된 iframe HTML 파일 수: {len(iframe_paths)}")
+        
+        # 모든 참조 파일 목록 통합 (중복 제거)
+        all_reference_files = list(set(img_paths + href_paths + iframe_paths))
+        logger.info(f"총 참조 파일 수(중복 제거): {len(all_reference_files)}")
         
         # iframe의 새창 열기 링크 제거 (ZIP 파일에서는 필요 없음)
-        iframe_link_pattern = r'<a\s+href="(/static/[^"]+\.html)"\s+target="_blank"\s+class="btn\s+btn-primary[^>]*>[^<]*</a>'
+        iframe_link_pattern = r'<a\s+href="(/static/[^"]+)"\s+target="_blank"\s+class="btn\s+btn-primary[^>]*>[^<]*</a>'
         enhanced_html = re.sub(iframe_link_pattern, '', enhanced_html)
         
         # 관련 설명 텍스트도 제거
@@ -1785,44 +1857,117 @@ async def download_zip(html_content: str = Form(...)):
         div_container_pattern = r'<div\s+class="p-3\s+text-center">\s*</div>'
         enhanced_html = re.sub(div_container_pattern, '', enhanced_html)
         
+        # 복사된 파일 경로 추적
+        copied_files = set()
+        
+        # 파일 복사 과정 개선
         for file_path in all_reference_files:
-            # 상대 경로를 절대 경로로 변환
-            full_path = os.path.join(BASE_DIR, file_path.lstrip('/'))
-            # 대상 경로
-            target_path = os.path.join(temp_dir, os.path.basename(file_path))
-            # 파일 복사
-            if os.path.exists(full_path):
-                shutil.copy2(full_path, target_path)
-                logger.info(f"참조 파일 복사: {full_path} → {target_path}")
+            try:
+                # 상대 경로를 절대 경로로 변환
+                full_path = os.path.join(BASE_DIR, file_path.lstrip('/'))
+                # 대상 경로
+                target_path = os.path.join(temp_dir, os.path.basename(file_path))
                 
-                # HTML 파일 내 경로 수정
-                enhanced_html = enhanced_html.replace(
-                    f'src="{file_path}"', 
-                    f'src="{os.path.basename(file_path)}"'
-                )
-                enhanced_html = enhanced_html.replace(
-                    f'href="{file_path}"', 
-                    f'href="{os.path.basename(file_path)}"'
-                )
+                # 파일 존재 확인 후 복사
+                if os.path.exists(full_path) and os.path.isfile(full_path):
+                    shutil.copy2(full_path, target_path)
+                    copied_files.add(os.path.basename(file_path))
+                    logger.info(f"참조 파일 복사: {full_path} → {target_path}")
+                    
+                    # HTML 파일 내 경로 수정
+                    enhanced_html = enhanced_html.replace(
+                        f'src="{file_path}"', 
+                        f'src="{os.path.basename(file_path)}"'
+                    )
+                    enhanced_html = enhanced_html.replace(
+                        f'href="{file_path}"', 
+                        f'href="{os.path.basename(file_path)}"'
+                    )
+                    
+                    # iframe HTML 파일이 있을 경우 추가 리소스 처리
+                    if file_path.endswith('.html'):
+                        try:
+                            # HTML 파일의 내용을 읽어서 관련 리소스 찾기
+                            with open(full_path, 'r', encoding='utf-8') as f:
+                                iframe_html = f.read()
+                                
+                            # 이 HTML에서 추가 참조 (JS, CSS 등) 추출
+                            js_files = re.findall(r'src="(https://cdn\.plot\.ly/[^"]+\.js)"', iframe_html)
+                            
+                            # 수정본에 있는 HTML도 함께 수정
+                            updated_iframe_html = iframe_html
+                            
+                            # 외부 리소스 다운로드 및 로컬 저장
+                            import requests
+                            for js_url in js_files:
+                                try:
+                                    js_filename = os.path.basename(js_url)
+                                    js_local_path = os.path.join(temp_dir, js_filename)
+                                    
+                                    # 이미 다운로드하지 않았다면
+                                    if js_filename not in copied_files:
+                                        # 외부 리소스 다운로드
+                                        logger.info(f"외부 리소스 다운로드 시도: {js_url}")
+                                        response = requests.get(js_url, timeout=10)
+                                        if response.status_code == 200:
+                                            with open(js_local_path, 'wb') as js_file:
+                                                js_file.write(response.content)
+                                            copied_files.add(js_filename)
+                                            logger.info(f"외부 JS 파일 다운로드 완료: {js_url} → {js_local_path}")
+                                            
+                                            # HTML 내용 수정 - CDN URL을 로컬 파일로 변경
+                                            updated_iframe_html = updated_iframe_html.replace(
+                                                f'src="{js_url}"',
+                                                f'src="{js_filename}"'
+                                            )
+                                except Exception as js_err:
+                                    logger.error(f"JS 파일 다운로드 실패: {js_url}, 오류: {js_err}")
+                            
+                            # 수정된 HTML 파일 저장
+                            with open(target_path, 'w', encoding='utf-8') as f:
+                                f.write(updated_iframe_html)
+                            
+                        except Exception as html_err:
+                            logger.error(f"HTML 파일 리소스 처리 오류: {file_path}, 오류: {html_err}")
+                else:
+                    logger.warning(f"파일이 존재하지 않습니다: {full_path}")
+            except Exception as file_err:
+                logger.error(f"파일 복사 중 오류: {file_path}, 오류: {file_err}")
         
         # 수정된 HTML 다시 저장
         with open(html_path, "w", encoding="utf-8") as f:
             f.write(enhanced_html)
         
         # ZIP 파일 생성
-        with zipfile.ZipFile(zip_path, 'w') as zip_file:
-            # HTML 파일 추가
-            zip_file.write(html_path, "분석_결과.html")
+        try:
+            with zipfile.ZipFile(zip_path, 'w') as zip_file:
+                # HTML 파일 추가
+                if os.path.exists(html_path):
+                    zip_file.write(html_path, "분석_결과.html")
+                else:
+                    logger.error(f"HTML 파일이 존재하지 않습니다: {html_path}")
+                
+                # 모든 복사된 파일 추가
+                added_count = 0
+                for filename in copied_files:
+                    filepath = os.path.join(temp_dir, filename)
+                    if os.path.exists(filepath):
+                        zip_file.write(filepath, filename)
+                        added_count += 1
+                    else:
+                        logger.warning(f"복사된 파일이 존재하지 않습니다: {filepath}")
+                
+                logger.info(f"ZIP 파일에 추가된 파일 수: {added_count+1} (HTML 포함)")
             
-            # 참조 파일 추가 (이미지 + 인터랙티브 HTML)
-            for file_path in all_reference_files:
-                full_path = os.path.join(BASE_DIR, file_path.lstrip('/'))
-                if os.path.exists(full_path):
-                    # 한글 파일명이 들어있는 경우 처리
-                    basename = os.path.basename(full_path)
-                    zip_file.write(full_path, basename)
-        
-        logger.info(f"ZIP 파일 생성 완료: {zip_path}")
+            # ZIP 파일 생성 완료 확인
+            if os.path.exists(zip_path) and os.path.getsize(zip_path) > 0:
+                logger.info(f"ZIP 파일 생성 완료: {zip_path} (크기: {os.path.getsize(zip_path)/1024:.1f}KB)")
+            else:
+                raise Exception("ZIP 파일이 올바르게 생성되지 않았습니다.")
+                
+        except Exception as zip_err:
+            logger.error(f"ZIP 파일 생성 오류: {zip_err}")
+            raise
         
         # 백그라운드 작업으로 임시 폴더 삭제하는 함수 - 비동기 함수로 변경
         async def remove_temp_dir():
