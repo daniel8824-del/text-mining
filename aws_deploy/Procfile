@@ -1,0 +1,1 @@
+web: MEMORY_LIMIT_MB=3584 gunicorn -w 1 -k uvicorn.workers.UvicornWorker application:app 

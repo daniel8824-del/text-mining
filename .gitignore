@@ -60,7 +60,7 @@ ENV/
 *.pkl
 
 # AWS 배포 관련 파일
-aws_deploy/
+# aws_deploy/
 .elasticbeanstalk/
 .ebextensions/
 .ebignore

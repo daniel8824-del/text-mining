@@ -1,0 +1,14 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "pip install -r requirements.txt && mkdir -p uploads static && chmod -R 777 uploads static"
+  },
+  "deploy": {
+    "startCommand": "python -c \"import os; port = int(os.environ.get('PORT', 8000)); import uvicorn; uvicorn.run('fastapi_app:app', host='0.0.0.0', port=port, workers=1)\"",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10,
+    "healthcheckPath": "/",
+    "healthcheckTimeout": 300
+  }
+} 
