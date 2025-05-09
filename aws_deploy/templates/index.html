@@ -947,21 +947,26 @@
                     document.getElementById('bubbleChartResults').innerHTML = '<div class="alert alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>키워드 영향력 버블 차트를 생성할 수 없습니다.</div>';
                 }
 
+                // 키워드 군집 3D 시각화 표시
+                if (data.clusters3d_path) {
+                    document.getElementById('clusters3dResults').innerHTML = `
+                        <div class="card shadow-sm">
+                            <div class="card-body p-0">
+                                <img src="${data.clusters3d_path}" class="img-fluid rounded" alt="키워드 군집 3D 시각화">
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('clusters3dResults').innerHTML = '<div class="alert alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>키워드 군집 3D 시각화를 생성할 수 없습니다.</div>';
+                }
+
                 // 인터랙티브 3D 시각화 표시
                 if (data.interactive_3d_path) {
                     document.getElementById('interactive3dResults').innerHTML = `
                         <div class="card shadow-sm">
                             <div class="card-body p-0">
-                                <div class="ratio ratio-16x9">
-                                    <iframe src="${data.interactive_3d_path}" allowfullscreen></iframe>
-                                </div>
-                                <div class="p-3 text-center">
-                                    <a href="${data.interactive_3d_path}" target="_blank" class="btn btn-primary btn-lg px-4 py-2">
-                                        <i class="fas fa-external-link-alt me-2"></i> 새 창에서 열기 (더 넓게 보기)
-                                    </a>
-                                    <p class="text-muted mt-2 small">
-                                        <i class="fas fa-info-circle me-1"></i> 새 창에서 열면 더 큰 화면으로 확대/축소/회전이 가능합니다
-                                    </p>
+                                <div style="height:700px; overflow:hidden; position:relative;">
+                                    <iframe src="${data.interactive_3d_path}" allowfullscreen="true" scrolling="no" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none;"></iframe>
                                 </div>
                             </div>
                         </div>

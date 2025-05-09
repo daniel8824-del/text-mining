@@ -1339,7 +1339,7 @@ async def analyze_text(
                                 cluster_keywords.append(["키워드 없음"])
                         
                         # 저해상도로 시각화
-                        dpi = 200  # 낮은 DPI 설정
+                        dpi = 300  # DPI 설정 높임 (200 -> 300)
                         
                         # 3D 시각화 - 스타일 최적화
                         fig = plt.figure(figsize=(10, 8), dpi=dpi)
@@ -1446,8 +1446,25 @@ async def analyze_text(
                         plt.tight_layout()
                         plt.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.95)
                         
-                        plt.savefig(clusters3d_path, bbox_inches='tight', dpi=dpi)
-                        plt.close()
+                        try:
+                            # 파일 경로 로깅
+                            logger.info(f"3D 군집화 그래프 저장 경로: {clusters3d_path}")
+                            
+                            # 이미지 저장
+                            plt.savefig(clusters3d_path, bbox_inches='tight', dpi=dpi)
+                            plt.close()
+                            
+                            # 파일 생성 확인
+                            if os.path.exists(clusters3d_path):
+                                logger.info(f"3D 군집화 그래프 파일 생성 완료: {clusters3d_path}")
+                                results['clusters3d_path'] = f'/static/clusters3d_{unique_filename}.png'
+                            else:
+                                logger.warning(f"3D 군집화 그래프 파일이 생성되지 않았습니다. 경로: {clusters3d_path}")
+                                results['clusters3d_path'] = ''
+                        except Exception as save_error:
+                            logger.error(f"3D 군집화 그래프 저장 중 오류: {save_error}")
+                            logger.error(traceback.format_exc())
+                            results['clusters3d_path'] = ''
                         
                         # 인터랙티브 3D 시각화 추가 (plotly 사용)
                         if 'PLOTLY_AVAILABLE' in globals() and PLOTLY_AVAILABLE:
@@ -1500,31 +1517,12 @@ async def analyze_text(
                                         yaxis_title='Y 차원',
                                         zaxis_title='Z 차원',
                                     ),
-                                    legend=dict(
-                                        # 범례 위치를 오른쪽으로 설정
-                                        x=1.05,
-                                        y=0.9,
-                                        # 배경 및 테두리 설정
-                                        bgcolor='rgba(255, 255, 255, 0.9)',
-                                        bordercolor='lightgray',
-                                        borderwidth=1,
-                                        # 텍스트 설정
-                                        font=dict(size=10, family='Arial, sans-serif'),
-                                        # 너비 제한 제거 및 텍스트 자르지 않기
-                                        traceorder='normal',
-                                        itemsizing='constant',
-                                        # 선택 모드 변경
-                                        itemclick='toggle',
-                                        itemdoubleclick='toggleothers',
-                                        # 스크롤 가능한 범례
-                                        yanchor='top',
-                                        xanchor='left'
-                                    ),
+                                    showlegend=False,  # 범례 완전히 제거
                                     # 전체 여백 설정
-                                    margin=dict(l=0, r=120, b=0, t=40),
-                                    # 기본 높이와 너비 설정
-                                    height=600,
-                                    width=800,
+                                    margin=dict(l=0, r=0, b=0, t=40),
+                                    # 기본 높이와 너비 설정 - 크게 설정
+                                    height=700,
+                                    width=900,
                                     # 클릭 이벤트 설정
                                     clickmode='event+select'
                                 )
@@ -1533,8 +1531,9 @@ async def analyze_text(
                                 config = {
                                     'displayModeBar': True,
                                     'displaylogo': False,
-                                    'modeBarButtonsToAdd': ['toggleHover'],
+                                    'modeBarButtonsToAdd': ['toggleHover', 'resetCameraLastSave3d'],
                                     'responsive': True,
+                                    'scrollZoom': True,
                                     'toImageButtonOptions': {
                                         'format': 'png',
                                         'filename': '3D_시각화',
