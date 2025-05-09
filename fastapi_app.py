@@ -301,7 +301,7 @@ async def monitor_memory():
                 logger.warning(f"심각한 메모리 부족! 사용량: {current_memory / 1024 / 1024:.2f} MB ({memory_percent:.1f}%)")
                 # 최소한의 메모리 정리만 수행
                 gc.collect()
-            
+                
             # 주기적으로 메모리 상태만 로깅
             if memory_percent > 80:
                 logger.info(f"높은 메모리 사용량: {current_memory / 1024 / 1024:.2f} MB ({memory_percent:.1f}%)")
@@ -1166,10 +1166,7 @@ async def analyze_text(
                     logger.error(traceback.format_exc())
                     results['bubble_path'] = ''
                 
-                # 3) 키워드 군집 3D 시각화
-                clusters3d_path = os.path.join(STATIC_DIR, f'clusters3d_{unique_filename}.png')
-                clusters2d_path = os.path.join(STATIC_DIR, f'clusters2d_{unique_filename}.png')
-                
+                # 3) 인터랙티브 3D 시각화
                 try:
                     # 한글 폰트 설정 - 명시적으로 여기서 다시 설정
                     try:
@@ -1338,160 +1335,14 @@ async def analyze_text(
                             else:
                                 cluster_keywords.append(["키워드 없음"])
                         
-                        # 저해상도로 시각화
-                        dpi = 300  # DPI 설정 높임 (200 -> 300)
-                        
-                        # 3D 시각화 - 스타일 최적화
-                        fig = plt.figure(figsize=(8, 6), dpi=dpi)  # figsize 축소 (10, 8) -> (8, 6)
-                        ax = fig.add_subplot(111, projection='3d')
-                        
-                        # 색상 생성 - 더 구분이 잘 되는 색상 맵 사용
-                        colors_3d = plt.cm.tab10(np.linspace(0, 1, final_n_clusters))
-                        
-                        # 각 클러스터 그리기 - 주요 키워드 표시
-                        for i in range(final_n_clusters):
-                            indices = final_labels == i
-                            # 대용량 데이터는 샘플링
-                            if np.sum(indices) > 100:
-                                sample_idx = np.random.choice(np.where(indices)[0], 100, replace=False)
-                                xs = tsne_results_3d[sample_idx, 0]
-                                ys = tsne_results_3d[sample_idx, 1]
-                                zs = tsne_results_3d[sample_idx, 2]
-                                
-                                # 클러스터 중심점 계산
-                                center_x = np.mean(xs)
-                                center_y = np.mean(ys)
-                                center_z = np.mean(zs)
-                            else:
-                                xs = tsne_results_3d[indices, 0]
-                                ys = tsne_results_3d[indices, 1]
-                                zs = tsne_results_3d[indices, 2]
-                                
-                                # 클러스터 중심점 계산
-                                center_x = np.mean(xs)
-                                center_y = np.mean(ys)
-                                center_z = np.mean(zs)
-                                
-                            if len(xs) > 0:  # 점이 있는지 확인
-                                # 더 큰 점으로 표시하고 투명도 낮춤
-                                scatter = ax.scatter(xs, ys, zs, 
-                                           c=[colors_3d[i]], 
-                                           label=f'클러스터 {i+1}', 
-                                           s=40, alpha=0.8,
-                                           edgecolors='w')
-                                
-                                # 클러스터 중심에 번호만 표시
-                                ax.text(center_x, center_y, center_z, f"#{i+1}", 
-                                        fontsize=12, ha='center', va='center', weight='bold',
-                                        bbox=dict(facecolor='white', alpha=0.9, boxstyle='round,pad=0.5',
-                                                 edgecolor='gray', linewidth=1))
-                                
-                                # 클러스터 별로 다른 위치에 화살표와 텍스트 배치
-                                if len(cluster_keywords[i]) > 0:
-                                    # 화살표 시작점(클러스터 중심)
-                                    arrow_start = (center_x, center_y, center_z)
-                                    
-                                    # 화살표 끝점(그래프 외부) - 클러스터마다 다른 위치
-                                    # 축 범위 계산
-                                    x_range = ax.get_xlim()
-                                    y_range = ax.get_ylim()
-                                    z_range = ax.get_zlim()
-                                    
-                                    # 클러스터마다 완전히 다른 고정된 위치에 라벨 배치
-                                    if i % 5 == 0:  # 우측 상단
-                                        arrow_end = (x_range[1] * 1.2, 
-                                                    y_range[1] * 0.9, 
-                                                    z_range[1] * 0.8)
-                                        ha, va = 'left', 'center'
-                                    elif i % 5 == 1:  # 좌측 상단
-                                        arrow_end = (x_range[0] * 1.2, 
-                                                    y_range[1] * 0.9, 
-                                                    z_range[1] * 0.8)
-                                        ha, va = 'right', 'center'
-                                    elif i % 5 == 2:  # 우측 하단
-                                        arrow_end = (x_range[1] * 1.2, 
-                                                    y_range[0] * 1.1, 
-                                                    z_range[0] * 1.2)
-                                        ha, va = 'left', 'center'
-                                    elif i % 5 == 3:  # 좌측 하단
-                                        arrow_end = (x_range[0] * 1.2, 
-                                                    y_range[0] * 1.1, 
-                                                    z_range[0] * 1.2)
-                                        ha, va = 'right', 'center'
-                                    else:  # 중앙 상단
-                                        arrow_end = (center_x,
-                                                    y_range[1] * 1.2,
-                                                    z_range[1] * 1.2)
-                                        ha, va = 'center', 'bottom'
-                                    
-                                    # 화살표 그리기
-                                    ax.plot([arrow_start[0], arrow_end[0]], 
-                                           [arrow_start[1], arrow_end[1]], 
-                                           [arrow_start[2], arrow_end[2]], 
-                                           'gray', linestyle='-', linewidth=1.2, alpha=0.7,
-                                           marker='>', markevery=[-1])
-                                    
-                                    # 키워드 텍스트
-                                    keyword_text = f"클러스터 {i+1}: {', '.join(cluster_keywords[i][:3])}"
-                                    
-                                    # 화살표 끝에 텍스트 배치 - 불투명한 배경 박스 추가 및 zorder 설정
-                                    text_box = ax.text(arrow_end[0], arrow_end[1], arrow_end[2],
-                                           keyword_text,
-                                           fontsize=10, ha=ha, va=va, weight='bold',
-                                           bbox=dict(facecolor='white', alpha=0.9, boxstyle='round',
-                                                  edgecolor=colors_3d[i], linewidth=2, pad=0.7),
-                                           zorder=100)  # zorder를 높게 설정하여 항상 맨 앞에 표시
-                                    
-                                    # Z-buffer 설정 - 투명도 처리 최적화
-                                    text_box.set_3d_properties(zdir='z')
-                                    text_box.set_zorder(100)  # zorder 값을 높게 설정
-                        
-                        # 3D 효과 및 뷰 개선
-                        ax.set_title('키워드 군집 3D 시각화 (클러스터 5개로 제한)', fontsize=14)
-                        ax.view_init(30, 45)  # 시각화 각도 조정
-                        
-                        # Z-buffer 시각화 품질 설정
-                        ax.set_box_aspect([1, 1, 1])  # 종횡비 균등화
-                        
-                        # 점이 큰 것부터 작은 것 순으로 그리도록 수정 (앞쪽 데이터가 뒤쪽 데이터를 가리도록)
-                        for artist in ax.get_children():
-                            if isinstance(artist, plt.Line2D):
-                                artist.set_zorder(10)  # 선의 zorder 설정
-                            elif isinstance(artist, plt.Text):
-                                artist.set_zorder(100)  # 텍스트의 zorder 설정은 가장
-                        
-                        # 범례 제거 - 화살표와 텍스트로 충분히 설명됨
-                        # ax.legend(fontsize=8)
-                        
-                        # 여백 추가하여 화살표와 텍스트가 잘 보이도록 함
-                        plt.tight_layout()
-                        plt.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.95)
-                        
-                        try:
-                            # 파일 경로 로깅
-                            logger.info(f"3D 군집화 그래프 저장 경로: {clusters3d_path}")
-                            
-                            # 이미지 저장
-                            plt.savefig(clusters3d_path, bbox_inches='tight', dpi=dpi)
-                            plt.close()
-                            
-                            # 파일 생성 확인
-                            if os.path.exists(clusters3d_path):
-                                logger.info(f"3D 군집화 그래프 파일 생성 완료: {clusters3d_path}")
-                                results['clusters3d_path'] = f'/static/clusters3d_{unique_filename}.png'
-                            else:
-                                logger.warning(f"3D 군집화 그래프 파일이 생성되지 않았습니다. 경로: {clusters3d_path}")
-                                results['clusters3d_path'] = ''
-                        except Exception as save_error:
-                            logger.error(f"3D 군집화 그래프 저장 중 오류: {save_error}")
-                            logger.error(traceback.format_exc())
-                            results['clusters3d_path'] = ''
-                        
                         # 인터랙티브 3D 시각화 추가 (plotly 사용)
-                        if 'PLOTLY_AVAILABLE' in globals() and PLOTLY_AVAILABLE:
-                            try:
+                        try:
+                            if 'PLOTLY_AVAILABLE' in globals() and PLOTLY_AVAILABLE:
                                 # 인터랙티브 파일 경로
                                 interactive_3d_path = os.path.join(STATIC_DIR, f'interactive_3d_{unique_filename}.html')
+                                
+                                # 색상 생성 - 더 구분이 잘 되는 색상 맵 사용
+                                colors_3d = plt.cm.tab10(np.linspace(0, 1, final_n_clusters))
                                 
                                 # 클러스터별 데이터 구성
                                 fig_plotly = go.Figure()
@@ -1501,7 +1352,7 @@ async def analyze_text(
                                     cluster_points = tsne_results_3d[indices]
                                     
                                     if len(cluster_points) > 0:
-                                        # 범례 이름 간소화 - 클러스터 번호만 표시
+                                        # 범례 이름 더 짧게 수정
                                         cluster_name = f'클러스터 {i+1}'
                                         
                                         # RGB 색상 변환
@@ -1519,7 +1370,7 @@ async def analyze_text(
                                                 color=f'rgba({int(colors_3d[i][0]*255)}, {int(colors_3d[i][1]*255)}, {int(colors_3d[i][2]*255)}, 0.8)',
                                                 line=dict(width=0.5, color='white')
                                             ),
-                                            name=cluster_name,
+                                            name=f'클러스터{i+1}',  # 더 짧고 간결한 이름으로 변경
                                             hovertemplate='<b>%{text}</b>',
                                             text=[f"{cluster_name}: {', '.join(cluster_keywords[i][:3])}" for _ in range(len(cluster_points))]
                                         ))
@@ -1541,36 +1392,44 @@ async def analyze_text(
                                     ),
                                     showlegend=True,  # 범례 표시로 변경
                                     legend=dict(
-                                        title=dict(text='클러스터'),
+                                        title=dict(text=''),
                                         itemsizing='constant',
                                         itemclick='toggle',  # 개별 토글로 변경
                                         itemdoubleclick='toggle',  # 더블클릭 시 토글
-                                        orientation='v',     # 세로 방향 배치
-                                        yanchor='top',       # 상단 고정
-                                        y=1.0,               # 최상단에 배치
-                                        xanchor='right',     # 오른쪽 고정
-                                        x=1.0,               # 오른쪽 끝에 배치
+                                        orientation='h',     # 가로 방향 배치로 변경
+                                        yanchor='bottom',    # 하단 고정으로 변경
+                                        y=-0.10,             # 그래프 아래쪽에 배치
+                                        xanchor='center',    # 중앙 정렬로 변경
+                                        x=0.5,               # 중앙에 배치
                                         bgcolor='rgba(255, 255, 255, 0.9)',  # 배경색 더 불투명하게
                                         bordercolor='rgba(0, 0, 0, 0.3)',
                                         borderwidth=1,
-                                        font=dict(size=11, family='Arial')   # 영문 폰트 사용
+                                        font=dict(size=12, family='NanumGothic'),  # 한글 폰트 사용
+                                        itemwidth=30,        # 범례 항목 기호 너비 줄임
+                                        entrywidth=70,       # 범례 항목 전체 너비 설정
+                                        entrywidthmode='pixels',  # 픽셀 단위로 설정
+                                        tracegroupgap=15,    # 범례 그룹 간 간격 설정
+                                        traceorder='normal'  # 범례 순서 정렬
                                     ),
-                                    # 전체 여백 설정
-                                    margin=dict(l=0, r=0, b=0, t=40),
+                                    # 전체 여백 설정 - 하단 여백 추가
+                                    margin=dict(l=0, r=0, b=80, t=40),
                                     # 기본 높이와 너비 설정 - 크게 설정
                                     height=700,  # 원래 크기로 복원 (500 -> 700)
-                                    width=900,   # 원래 크기로 복원 (700 -> 900)
+                                    width=1000,  # 너비 증가 (900 -> 1000)
                                     # 클릭 이벤트 설정
                                     clickmode='event+select'
                                 )
                                 
                                 # 구성 옵션 설정
                                 config = {
-                                    'displayModeBar': True,
+                                    'displayModeBar': True,  # 모드바 항상 표시
                                     'displaylogo': False,
-                                    'modeBarButtonsToAdd': ['toggleHover', 'resetCameraLastSave3d'],
+                                    'modeBarButtonsToRemove': ['sendDataToCloud', 'select2d', 'lasso2d'],  # 덜 중요한 버튼 제거
+                                    'modeBarButtonsToAdd': ['resetCameraLastSave3d', 'hoverClosest3d'],  # 중요 버튼 추가
                                     'responsive': True,
                                     'scrollZoom': True,
+                                    'staticPlot': False,  # 상호작용 유지
+                                    'showAxisDragHandles': True,  # 축 핸들 표시
                                     'toImageButtonOptions': {
                                         'format': 'png',
                                         'filename': '3D_시각화',
@@ -1590,34 +1449,32 @@ async def analyze_text(
                                 else:
                                     logger.warning("인터랙티브 3D 시각화 파일 생성 실패")
                                     results['interactive_3d_path'] = ''
-                            except Exception as plotly_error:
-                                logger.error(f"인터랙티브 3D 시각화 생성 오류: {plotly_error}")
-                                logger.error(traceback.format_exc())
+                            else:
+                                logger.info("plotly 모듈이 설치되지 않아 인터랙티브 3D 시각화를 생성하지 않습니다.")
                                 results['interactive_3d_path'] = ''
-                        else:
-                            logger.info("plotly 모듈이 설치되지 않아 인터랙티브 3D 시각화를 생성하지 않습니다.")
+                        except Exception as viz3d_error:
+                            logger.error(f"3D 시각화 생성 오류: {viz3d_error}")
+                            logger.error(traceback.format_exc())
                             results['interactive_3d_path'] = ''
                     else:
                         logger.warning("3D 시각화를 위한 충분한 데이터가 없습니다.")
-                        results['clusters3d_path'] = ''
-                        results['clusters2d_path'] = ''
+                        results['interactive_3d_path'] = ''
                 except Exception as viz3d_error:
                     logger.error(f"3D 시각화 생성 오류: {viz3d_error}")
                     logger.error(traceback.format_exc())
-                    results['clusters3d_path'] = ''
-                    results['clusters2d_path'] = ''
+                    results['interactive_3d_path'] = ''
             else:
                 logger.warning("고급 분석을 위한 충분한 데이터가 없습니다.")
                 results['clustering_path'] = ''
                 results['bubble_path'] = ''
-                results['clusters3d_path'] = ''
+                results['interactive_3d_path'] = ''
                 results['community_info'] = []
         except Exception as advanced_analysis_error:
             logger.error(f"고급 분석 오류: {advanced_analysis_error}")
             logger.error(traceback.format_exc())
             results['clustering_path'] = ''
             results['bubble_path'] = ''
-            results['clusters3d_path'] = ''
+            results['interactive_3d_path'] = ''
             results['community_info'] = []
         
         # 결과 반환

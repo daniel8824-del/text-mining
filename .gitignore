@@ -29,6 +29,8 @@ instance/
 # 분석 결과물
 static/*.png
 static/*.jpg
+aws_deploy/static/*.png
+aws_deploy/static/*.jpg
 data/uploads/
 
 # 기타
