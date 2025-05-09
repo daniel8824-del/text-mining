@@ -120,9 +120,9 @@ POS_OPTIONS = {
 # 메모리 관리 설정
 IS_RAILWAY = 'RAILWAY_ENVIRONMENT' in os.environ or 'RAILWAY_SERVICE_NAME' in os.environ
 MEMORY_LIMIT_MB = int(os.environ.get('MEMORY_LIMIT_MB', '2048'))  # 기본값 2048MB(2GB), 환경 변수에서 가져옴
-MAX_MEMORY_PERCENT = 80  # 최대 메모리 사용률 (80%)
-MEMORY_THRESHOLD = MEMORY_LIMIT_MB * 0.8 * 1024 * 1024  # 메모리 임계값 (지정된 한도의 80%)
-MEMORY_CHECK_INTERVAL = 20  # 20초마다 메모리 체크
+MAX_MEMORY_PERCENT = 95  # 최대 메모리 사용률 (80%)
+MEMORY_THRESHOLD = MEMORY_LIMIT_MB * 0.95 * 1024 * 1024  # 메모리 임계값 (지정된 한도의 80%)
+MEMORY_CHECK_INTERVAL = 60  # 20초마다 메모리 체크
 memory_monitor_running = False
 
 logger.info(f"메모리 제한: {MEMORY_LIMIT_MB}MB, 임계값: {MEMORY_THRESHOLD/(1024*1024):.1f}MB")
@@ -320,7 +320,7 @@ def clean_memory():
 
 # 레일웨이 환경에서의 안전한 최대 파일 크기 설정
 if IS_RAILWAY:
-    MAX_FILE_SIZE = 20 * 1024 * 1024  # 레일웨이에서는 20MB로 제한
+    MAX_FILE_SIZE = 100 * 1024 * 1024  # 레일웨이에서는 20MB로 제한
     MAX_CHART_SIZE = 30  # 레일웨이에서는 항목 수 축소
     logger.info("레일웨이 환경이 감지되어 메모리 사용량을 제한합니다.")
 else:
@@ -1230,84 +1230,154 @@ async def analyze_text(
                     except Exception as font_err:
                         logger.error(f"3D 시각화 폰트 설정 오류: {font_err}")
                     
-                    # 3D 차원 축소 (UMAP)
+                    # 3D 차원 축소 (TSNE)
                     if analyzer.tf_idf_matrix.shape[0] >= 4:  # 최소 4개 이상의 문서가 필요
-                        # 3D UMAP 계산에 시간 제한 설정
-                        umap_results_3d = None
-                        umap_completed = False
-                        umap_timeout = 60  # 60초 제한 (30초에서 변경)
+                        # 데이터 크기 확인
+                        n_samples = analyzer.tf_idf_matrix.shape[0]
+                        n_features = analyzer.tf_idf_matrix.shape[1]
+                        logger.info(f"3D 시각화 데이터 크기: {n_samples} 문서, {n_features} 특성")
                         
-                        def run_umap_3d():
-                            nonlocal umap_results_3d, umap_completed
-                            try:
-                                reducer_3d = umap.UMAP(n_components=3, 
-                                                    n_neighbors=n_neighbors,
-                                                    min_dist=min_dist,
-                                                    random_state=42)
-                                umap_results_3d = reducer_3d.fit_transform(analyzer.tf_idf_matrix.toarray())
-                                umap_completed = True
-                            except Exception as e:
-                                logger.error(f"3D UMAP 계산 오류: {e}")
+                        # 청크 처리를 위한 설정
+                        chunk_size = 30  # 청크 크기 설정
+                        total_chunks = (n_samples + chunk_size - 1) // chunk_size  # 올림 나눗셈
+                        logger.info(f"청크 단위 처리: 총 {total_chunks}개 청크 (청크 크기: {chunk_size})")
                         
-                        # 별도 스레드에서 UMAP 실행
-                        umap_thread = threading.Thread(target=run_umap_3d)
-                        umap_thread.daemon = True  # 메인 스레드 종료 시 함께 종료
+                        # 전체 결과를 저장할 변수
+                        all_tsne_results = []
+                        all_cluster_labels = []
                         
-                        logger.info(f"3D UMAP 계산 시작 (제한 시간: {umap_timeout}초)")
-                        umap_thread.start()
-                        
-                        # 타임아웃 대기
-                        start_time = time.time()
-                        while not umap_completed and time.time() - start_time < umap_timeout:
-                            time.sleep(0.5)  # 0.5초마다 완료 여부 확인
-                        
-                        if not umap_completed:
-                            logger.warning(f"3D UMAP 계산이 {umap_timeout}초 이내에 완료되지 않아 건너뜁니다.")
-                            results['clusters3d_path'] = ''
-                        else:
-                            logger.info(f"3D UMAP 계산 완료: {time.time() - start_time:.2f}초 소요")
+                        # 데이터 크기가 너무 크면 샘플링
+                        max_total_samples = 300  # 최대 샘플 수 제한
+                        if n_samples > max_total_samples:
+                            logger.info(f"대용량 데이터 감지: {n_samples} 문서를 {max_total_samples}개로 샘플링")
+                            sample_indices = np.random.choice(n_samples, max_total_samples, replace=False)
+                            sample_indices.sort()  # 인덱스 정렬
                             
-                            # 이후 군집화 및 시각화 진행
-                            if umap_results_3d is not None:
-                                # 군집화 (Spectral Clustering)
-                                n_clusters = min(4, analyzer.tf_idf_matrix.shape[0])
-                                spectral = SpectralClustering(n_clusters=n_clusters, random_state=42, assign_labels='discretize')
-                                spectral_labels = spectral.fit_predict(analyzer.tf_idf_matrix.toarray())
-                                
-                                # 3D 시각화
-                                fig = plt.figure(figsize=(12, 10))
-                                ax = fig.add_subplot(111, projection='3d')
-                                
-                                # 색상 생성
-                                colors_3d = plt.cm.jet(np.linspace(0, 1, len(np.unique(spectral_labels))))
-                                
-                                # 각 클러스터 그리기
-                                for i, label in enumerate(np.unique(spectral_labels)):
-                                    indices = spectral_labels == label
-                                    xs = umap_results_3d[indices, 0]
-                                    ys = umap_results_3d[indices, 1]
-                                    zs = umap_results_3d[indices, 2]
-                                    if len(xs) > 0:  # 점이 있는지 확인
-                                        ax.scatter(xs, ys, zs, c=[colors_3d[i]], label=f'클러스터 {i+1}', s=50, alpha=0.8)
-                                
-                                ax.set_title('키워드 군집 3D 시각화', fontsize=16)
-                                ax.view_init(35, 45)  # 시각화 각도 조정
-                                ax.legend()
-                                ax.grid(True)
-                                plt.tight_layout()
-                                plt.savefig(clusters3d_path, bbox_inches='tight', dpi=150)
-                                plt.close()
-                                
-                                # 파일 생성 확인
-                                if os.path.exists(clusters3d_path):
-                                    logger.info(f"3D 시각화 이미지 생성 완료: {clusters3d_path}")
-                                    results['clusters3d_path'] = f'/static/clusters3d_{unique_filename}.png'
-                                else:
-                                    logger.warning("3D 시각화 이미지 생성 실패")
-                                    results['clusters3d_path'] = ''
+                            # 샘플링된 행렬 생성
+                            if hasattr(analyzer.tf_idf_matrix, 'toarray'):
+                                sampled_matrix = analyzer.tf_idf_matrix[sample_indices].toarray()
                             else:
-                                logger.warning("3D UMAP 결과가 없어 시각화를 건너뜁니다.")
-                                results['clusters3d_path'] = ''
+                                sampled_matrix = analyzer.tf_idf_matrix[sample_indices]
+                                
+                            # 샘플링 후 원본 변수 재설정
+                            n_samples = len(sample_indices)
+                            chunk_size = min(chunk_size, n_samples // 3)  # 청크 크기 재조정
+                            chunk_size = max(chunk_size, 10)  # 최소 10개
+                            total_chunks = (n_samples + chunk_size - 1) // chunk_size
+                            logger.info(f"샘플링 후 청크 설정: {total_chunks}개 청크 (청크 크기: {chunk_size})")
+                            
+                            # 메모리 즉시 정리
+                            gc.collect()
+                        else:
+                            sampled_matrix = None  # 샘플링하지 않을 경우
+                        
+                        # 청크 단위로 처리
+                        for chunk_idx in range(total_chunks):
+                            start_idx = chunk_idx * chunk_size
+                            end_idx = min(start_idx + chunk_size, n_samples)
+                            current_chunk_size = end_idx - start_idx
+                            
+                            logger.info(f"청크 {chunk_idx+1}/{total_chunks} 처리 중 (인덱스 {start_idx}~{end_idx-1})")
+                            
+                            # 현재 청크 추출 (샘플링 여부에 따라 다름)
+                            if sampled_matrix is not None:
+                                chunk_matrix = sampled_matrix[start_idx:end_idx]
+                            else:
+                                if hasattr(analyzer.tf_idf_matrix, 'toarray'):
+                                    chunk_matrix = analyzer.tf_idf_matrix[start_idx:end_idx].toarray()
+                                else:
+                                    chunk_matrix = analyzer.tf_idf_matrix[start_idx:end_idx]
+                            
+                            # perplexity 안전하게 설정 (청크 크기에 맞게)
+                            chunk_perplexity = min(15, max(3, current_chunk_size // 5))
+                            if chunk_perplexity >= current_chunk_size:
+                                chunk_perplexity = max(2, current_chunk_size - 1)
+                            
+                            logger.info(f"청크 {chunk_idx+1} t-SNE 설정: perplexity={chunk_perplexity}")
+                            
+                            # t-SNE로 3D 차원 축소 (현재 청크만)
+                            tsne_3d = TSNE(n_components=3, random_state=42, 
+                                           perplexity=chunk_perplexity,
+                                           n_iter=500)
+                            chunk_tsne_results = tsne_3d.fit_transform(chunk_matrix)
+                            
+                            # 메모리 정리
+                            del chunk_matrix
+                            gc.collect()
+                            
+                            # 군집화 (현재 청크만)
+                            n_clusters = min(3, current_chunk_size)  # 클러스터 수 제한
+                            kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=1)
+                            chunk_labels = kmeans.fit_predict(chunk_tsne_results)
+                            
+                            # 결과 누적
+                            all_tsne_results.append(chunk_tsne_results)
+                            all_cluster_labels.append(chunk_labels)
+                            
+                            # 메모리 정리
+                            del chunk_tsne_results, chunk_labels
+                            gc.collect()
+                            
+                            logger.info(f"청크 {chunk_idx+1} 처리 완료, 메모리 정리됨")
+                        
+                        # 모든 청크 결과 병합
+                        tsne_results_3d = np.vstack(all_tsne_results)
+                        
+                        # 클러스터 라벨 병합 (오프셋 처리)
+                        cluster_labels = np.zeros(n_samples, dtype=int)
+                        offset = 0
+                        max_label = 0
+                        
+                        for i, labels in enumerate(all_cluster_labels):
+                            chunk_size = len(labels)
+                            # 이전 청크의 최대 라벨값 다음부터 시작하도록 오프셋 적용
+                            cluster_labels[offset:offset+chunk_size] = labels + max_label
+                            max_label += np.max(labels) + 1
+                            offset += chunk_size
+                        
+                        # 병합 후 메모리 정리
+                        del all_tsne_results, all_cluster_labels
+                        gc.collect()
+                        
+                        # 최종 클러스터 수가 4개를 넘지 않도록 제한 - 새로운 K-means 적용
+                        final_n_clusters = min(4, len(np.unique(cluster_labels)))
+                        logger.info(f"최종 클러스터 수를 {final_n_clusters}개로 제한합니다.")
+                        
+                        # 최종 클러스터링 - 차원 축소된 결과에 대해 다시 클러스터링
+                        final_kmeans = KMeans(n_clusters=final_n_clusters, random_state=42, n_init=1)
+                        final_labels = final_kmeans.fit_predict(tsne_results_3d)
+                        
+                        # 3D 시각화
+                        fig = plt.figure(figsize=(12, 10))
+                        ax = fig.add_subplot(111, projection='3d')
+                        
+                        # 색상 생성
+                        colors_3d = plt.cm.jet(np.linspace(0, 1, len(np.unique(final_labels))))
+                        
+                        # 각 클러스터 그리기
+                        for i, label in enumerate(np.unique(final_labels)):
+                            indices = final_labels == label
+                            xs = tsne_results_3d[indices, 0]
+                            ys = tsne_results_3d[indices, 1]
+                            zs = tsne_results_3d[indices, 2]
+                            if len(xs) > 0:  # 점이 있는지 확인
+                                ax.scatter(xs, ys, zs, c=[colors_3d[i]], label=f'클러스터 {i+1}', s=50, alpha=0.8)
+                        
+                        ax.set_title('키워드 군집 3D 시각화', fontsize=16)
+                        ax.view_init(35, 45)  # 시각화 각도 조정
+                        ax.legend()
+                        ax.grid(True)
+                        plt.tight_layout()
+                        plt.savefig(clusters3d_path, bbox_inches='tight', dpi=150)
+                        plt.close()
+                        
+                        # 파일 생성 확인
+                        if os.path.exists(clusters3d_path):
+                            logger.info(f"3D 시각화 이미지 생성 완료: {clusters3d_path}")
+                            results['clusters3d_path'] = f'/static/clusters3d_{unique_filename}.png'
+                        else:
+                            logger.warning("3D 시각화 이미지 생성 실패")
+                            results['clusters3d_path'] = ''
                     else:
                         logger.warning("3D 시각화를 위한 충분한 데이터가 없습니다.")
                         results['clusters3d_path'] = ''

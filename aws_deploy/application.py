@@ -1203,7 +1203,7 @@ async def analyze_text(
                         logger.info(f"3D 시각화 데이터 크기: {n_samples} 문서, {n_features} 특성")
                         
                         # 청크 처리를 위한 설정
-                        chunk_size = 30  # 더 작은 청크 크기 (50 → 30)
+                        chunk_size = 50  # 더 작은 청크 크기 (50 → 30)
                         total_chunks = (n_samples + chunk_size - 1) // chunk_size  # 올림 나눗셈
                         logger.info(f"청크 단위 처리: 총 {total_chunks}개 청크 (청크 크기: {chunk_size})")
                         
@@ -1226,8 +1226,8 @@ async def analyze_text(
                                 
                             # 샘플링 후 원본 변수 재설정
                             n_samples = len(sample_indices)
-                            chunk_size = min(chunk_size, n_samples // 3)  # 청크 크기 재조정
-                            chunk_size = max(chunk_size, 10)  # 최소 10개
+                            chunk_size = min(chunk_size, n_samples // 30)  # 청크 크기 재조정
+                            chunk_size = max(chunk_size, 50)  # 최소 50개
                             total_chunks = (n_samples + chunk_size - 1) // chunk_size
                             logger.info(f"샘플링 후 청크 설정: {total_chunks}개 청크 (청크 크기: {chunk_size})")
                             
@@ -1342,7 +1342,7 @@ async def analyze_text(
                         dpi = 300  # DPI 설정 높임 (200 -> 300)
                         
                         # 3D 시각화 - 스타일 최적화
-                        fig = plt.figure(figsize=(10, 8), dpi=dpi)
+                        fig = plt.figure(figsize=(8, 6), dpi=dpi)  # figsize 축소 (10, 8) -> (8, 6)
                         ax = fig.add_subplot(111, projection='3d')
                         
                         # 색상 생성 - 더 구분이 잘 되는 색상 맵 사용
@@ -1397,27 +1397,32 @@ async def analyze_text(
                                     y_range = ax.get_ylim()
                                     z_range = ax.get_zlim()
                                     
-                                    # 클러스터에 따라 다른 방향으로 화살표 배치
-                                    if i % 4 == 0:  # 우측
-                                        arrow_end = (x_range[1] * 1.05, 
-                                                    center_y + (i * 0.2) * (y_range[1] - y_range[0]), 
-                                                    center_z)
+                                    # 클러스터마다 완전히 다른 고정된 위치에 라벨 배치
+                                    if i % 5 == 0:  # 우측 상단
+                                        arrow_end = (x_range[1] * 1.2, 
+                                                    y_range[1] * 0.9, 
+                                                    z_range[1] * 0.8)
                                         ha, va = 'left', 'center'
-                                    elif i % 4 == 1:  # 좌측
-                                        arrow_end = (x_range[0] * 1.05, 
-                                                    center_y + (i * 0.2) * (y_range[1] - y_range[0]), 
-                                                    center_z)
+                                    elif i % 5 == 1:  # 좌측 상단
+                                        arrow_end = (x_range[0] * 1.2, 
+                                                    y_range[1] * 0.9, 
+                                                    z_range[1] * 0.8)
                                         ha, va = 'right', 'center'
-                                    elif i % 4 == 2:  # 상단
-                                        arrow_end = (center_x, 
-                                                    y_range[1] * 1.05, 
-                                                    center_z + (i * 0.2) * (z_range[1] - z_range[0]))
+                                    elif i % 5 == 2:  # 우측 하단
+                                        arrow_end = (x_range[1] * 1.2, 
+                                                    y_range[0] * 1.1, 
+                                                    z_range[0] * 1.2)
+                                        ha, va = 'left', 'center'
+                                    elif i % 5 == 3:  # 좌측 하단
+                                        arrow_end = (x_range[0] * 1.2, 
+                                                    y_range[0] * 1.1, 
+                                                    z_range[0] * 1.2)
+                                        ha, va = 'right', 'center'
+                                    else:  # 중앙 상단
+                                        arrow_end = (center_x,
+                                                    y_range[1] * 1.2,
+                                                    z_range[1] * 1.2)
                                         ha, va = 'center', 'bottom'
-                                    else:  # 하단
-                                        arrow_end = (center_x, 
-                                                    y_range[0] * 1.05, 
-                                                    center_z + (i * 0.2) * (z_range[1] - z_range[0]))
-                                        ha, va = 'center', 'top'
                                     
                                     # 화살표 그리기
                                     ax.plot([arrow_start[0], arrow_end[0]], 
@@ -1429,15 +1434,30 @@ async def analyze_text(
                                     # 키워드 텍스트
                                     keyword_text = f"클러스터 {i+1}: {', '.join(cluster_keywords[i][:3])}"
                                     
-                                    # 화살표 끝에 텍스트 배치
-                                    ax.text(arrow_end[0], arrow_end[1], arrow_end[2],
+                                    # 화살표 끝에 텍스트 배치 - 불투명한 배경 박스 추가 및 zorder 설정
+                                    text_box = ax.text(arrow_end[0], arrow_end[1], arrow_end[2],
                                            keyword_text,
                                            fontsize=10, ha=ha, va=va, weight='bold',
                                            bbox=dict(facecolor='white', alpha=0.9, boxstyle='round',
-                                                   edgecolor=colors_3d[i], linewidth=2))
+                                                  edgecolor=colors_3d[i], linewidth=2, pad=0.7),
+                                           zorder=100)  # zorder를 높게 설정하여 항상 맨 앞에 표시
+                                    
+                                    # Z-buffer 설정 - 투명도 처리 최적화
+                                    text_box.set_3d_properties(zdir='z', dep=0)
                         
+                        # 3D 효과 및 뷰 개선
                         ax.set_title('키워드 군집 3D 시각화 (클러스터 5개로 제한)', fontsize=14)
                         ax.view_init(30, 45)  # 시각화 각도 조정
+                        
+                        # Z-buffer 시각화 품질 설정
+                        ax.set_box_aspect([1, 1, 1])  # 종횡비 균등화
+                        
+                        # 점이 큰 것부터 작은 것 순으로 그리도록 수정 (앞쪽 데이터가 뒤쪽 데이터를 가리도록)
+                        for artist in ax.get_children():
+                            if isinstance(artist, plt.Line2D):
+                                artist.set_zorder(10)  # 선의 zorder 설정
+                            elif isinstance(artist, plt.Text):
+                                artist.set_zorder(100)  # 텍스트의 zorder 설정은 가장
                         
                         # 범례 제거 - 화살표와 텍스트로 충분히 설명됨
                         # ax.legend(fontsize=8)
@@ -1480,7 +1500,8 @@ async def analyze_text(
                                     cluster_points = tsne_results_3d[indices]
                                     
                                     if len(cluster_points) > 0:
-                                        cluster_name = f'클러스터 {i+1}: {", ".join(cluster_keywords[i][:3])}'
+                                        # 범례 이름 간소화 - 클러스터 번호만 표시
+                                        cluster_name = f'클러스터 {i+1}'
                                         
                                         # RGB 색상 변환
                                         r = int(colors_3d[i][0]*255)
@@ -1499,7 +1520,7 @@ async def analyze_text(
                                             ),
                                             name=cluster_name,
                                             hovertemplate='<b>%{text}</b>',
-                                            text=[cluster_name] * len(cluster_points)
+                                            text=[f"{cluster_name}: {', '.join(cluster_keywords[i][:3])}" for _ in range(len(cluster_points))]
                                         ))
                                 
                                 # 레이아웃 설정
@@ -1517,12 +1538,27 @@ async def analyze_text(
                                         yaxis_title='Y 차원',
                                         zaxis_title='Z 차원',
                                     ),
-                                    showlegend=False,  # 범례 완전히 제거
+                                    showlegend=True,  # 범례 표시로 변경
+                                    legend=dict(
+                                        title=dict(text='클러스터'),
+                                        itemsizing='constant',
+                                        itemclick='toggle',  # 개별 토글로 변경
+                                        itemdoubleclick='toggle',  # 더블클릭 시 토글
+                                        orientation='v',     # 세로 방향 배치
+                                        yanchor='top',       # 상단 고정
+                                        y=1.0,               # 최상단에 배치
+                                        xanchor='right',     # 오른쪽 고정
+                                        x=1.0,               # 오른쪽 끝에 배치
+                                        bgcolor='rgba(255, 255, 255, 0.9)',  # 배경색 더 불투명하게
+                                        bordercolor='rgba(0, 0, 0, 0.3)',
+                                        borderwidth=1,
+                                        font=dict(size=11, family='Arial')   # 영문 폰트 사용
+                                    ),
                                     # 전체 여백 설정
                                     margin=dict(l=0, r=0, b=0, t=40),
                                     # 기본 높이와 너비 설정 - 크게 설정
-                                    height=700,
-                                    width=900,
+                                    height=700,  # 원래 크기로 복원 (500 -> 700)
+                                    width=900,   # 원래 크기로 복원 (700 -> 900)
                                     # 클릭 이벤트 설정
                                     clickmode='event+select'
                                 )
