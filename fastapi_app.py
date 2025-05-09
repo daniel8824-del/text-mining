@@ -35,9 +35,9 @@ try:
     import matplotlib.font_manager as fm
     # 가능한 한글 폰트 경로 목록
     font_paths = [
+        'C:/Windows/Fonts/NanumGothic.ttf',
         '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
-        '/app/fonts/NanumGothic.ttf',
-        'C:/Windows/Fonts/malgun.ttf'
+        '/app/fonts/NanumGothic.ttf'
     ]
     
     font_installed = False
@@ -225,8 +225,8 @@ async def analyze_text(
         try:
             # 폰트 경로 설정 (운영체제별 처리)
             font_path = None
-            if os.path.exists('C:/Windows/Fonts/malgun.ttf'):  # Windows
-                font_path = 'C:/Windows/Fonts/malgun.ttf'
+            if os.path.exists('C:/Windows/Fonts/NanumGothic.ttf'):  # Windows
+                font_path = 'C:/Windows/Fonts/NanumGothic.ttf'
             elif os.path.exists('/usr/share/fonts/truetype/nanum/NanumGothic.ttf'):  # Ubuntu with Nanum
                 font_path = '/usr/share/fonts/truetype/nanum/NanumGothic.ttf'
             elif os.path.exists('/app/fonts/NanumGothic.ttf'):  # Docker 환경
@@ -281,9 +281,9 @@ async def analyze_text(
                         import matplotlib.font_manager as fm
                         # 가능한 한글 폰트 경로 목록
                         font_paths = [
+                            'C:/Windows/Fonts/NanumGothic.ttf',
                             '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
-                            '/app/fonts/NanumGothic.ttf',
-                            'C:/Windows/Fonts/malgun.ttf'
+                            '/app/fonts/NanumGothic.ttf'
                         ]
                         
                         font_set = False
@@ -363,9 +363,9 @@ async def analyze_text(
                 import matplotlib.font_manager as fm
                 # 가능한 한글 폰트 경로 목록
                 font_paths = [
+                    'C:/Windows/Fonts/NanumGothic.ttf',
                     '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
-                    '/app/fonts/NanumGothic.ttf',
-                    'C:/Windows/Fonts/malgun.ttf'
+                    '/app/fonts/NanumGothic.ttf'
                 ]
                 
                 font_set = False
@@ -614,11 +614,17 @@ async def analyze_text(
                 
                 # 1) 클러스터링 시각화
                 # TF-IDF 행렬을 2D로 차원 축소
+                # 데이터 샘플 수에 따라 perplexity 조정
                 n_samples = analyzer.tf_idf_matrix.shape[0]
-                # perplexity는 샘플 수보다 작아야 함
-                tsne_perplexity = min(30, max(5, n_samples-1))
-                print(f"TSNE 차원 축소 시작: 문서 수 = {n_samples}, perplexity = {tsne_perplexity}")
-                tsne = TSNE(n_components=2, random_state=42, perplexity=tsne_perplexity)
+                # perplexity는 보통 5~50 사이의 값 사용, 데이터 개수보다 작아야 함
+                optimal_perplexity = min(30, max(5, n_samples // 3))
+                
+                # 안전하게 샘플 수보다 작은 값으로 설정
+                if optimal_perplexity >= n_samples:
+                    optimal_perplexity = max(2, n_samples - 1)
+                    
+                print(f"2D t-SNE 설정: 샘플 수 = {n_samples}, perplexity = {optimal_perplexity}")
+                tsne = TSNE(n_components=2, random_state=42, perplexity=optimal_perplexity)
                 tsne_results = tsne.fit_transform(analyzer.tf_idf_matrix.toarray())
                 
                 # 클러스터링 수행 (K-means)
@@ -634,9 +640,9 @@ async def analyze_text(
                     import matplotlib.font_manager as fm
                     # 가능한 한글 폰트 경로 목록
                     font_paths = [
+                        'C:/Windows/Fonts/NanumGothic.ttf',
                         '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
-                        '/app/fonts/NanumGothic.ttf',
-                        'C:/Windows/Fonts/malgun.ttf'
+                        '/app/fonts/NanumGothic.ttf'
                     ]
                     
                     font_set = False
@@ -673,26 +679,28 @@ async def analyze_text(
                 centers = kmeans.cluster_centers_
                 if len(tsne_results) > 0:  # 결과가 있는지 확인
                     try:
-                        # perplexity 값을 centers 개수보다 작게 설정
-                        min_perplexity = min(5, centers.shape[0] - 1)  # 최소 perplexity는 5 또는 centers-1 중 작은 값
-                        if centers.shape[0] <= 1:  # centers가 1개 이하인 경우
-                            print("클러스터 중심점이 너무 적어 TSNE 변환을 건너뜁니다.")
-                            # 중심점 표시 없이 진행
-                        else:
-                            centers_tsne = TSNE(n_components=2, random_state=42, perplexity=min_perplexity)
-                            centers_2d = centers_tsne.fit_transform(centers)
-                            plt.scatter(
-                                centers_2d[:, 0], 
-                                centers_2d[:, 1], 
-                                s=200, 
-                                c='black', 
-                                alpha=0.5, 
-                                marker='X'
-                            )
-                    except Exception as tsne_err:
-                        print(f"클러스터 중심점 TSNE 변환 오류: {tsne_err}")
-                        print("클러스터 중심점 표시를 건너뜁니다.")
-                        # 중심점 표시 없이 진행
+                        # t-SNE를 사용하지 않고 클러스터링 된 포인트들의 평균 위치를 사용
+                        centers_2d = np.zeros((num_clusters, 2))
+                        
+                        for i in range(num_clusters):
+                            # 이 클러스터에 속한 점들의 평균 위치 계산
+                            cluster_points = tsne_results[cluster_labels == i]
+                            if len(cluster_points) > 0:
+                                centers_2d[i] = np.mean(cluster_points, axis=0)
+                        
+                        # 중심점 시각화
+                        plt.scatter(
+                            centers_2d[:, 0], 
+                            centers_2d[:, 1], 
+                            s=200, 
+                            c='black', 
+                            alpha=0.5, 
+                            marker='X'
+                        )
+                        print("클러스터 중심점 시각화 성공")
+                    except Exception as e:
+                        print(f"클러스터 중심점 시각화 오류: {e}, 중심점 표시를 건너뜁니다.")
+                        # 오류 발생 시 중심점 표시를 건너뜀
                 
                 plt.title('키워드 클러스터 분석', fontsize=16)
                 plt.legend(fontsize=12)
@@ -747,9 +755,9 @@ async def analyze_text(
                         import matplotlib.font_manager as fm
                         # 가능한 한글 폰트 경로 목록
                         font_paths = [
+                            'C:/Windows/Fonts/NanumGothic.ttf',
                             '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
-                            '/app/fonts/NanumGothic.ttf',
-                            'C:/Windows/Fonts/malgun.ttf'
+                            '/app/fonts/NanumGothic.ttf'
                         ]
                         
                         font_set = False
@@ -794,7 +802,8 @@ async def analyze_text(
                             colors = cmap(norm(importance_scores))
                             
                             # 버블 플롯 생성
-                            scatter = plt.scatter(
+                            fig, ax = plt.subplots(figsize=(12, 8))
+                            scatter = ax.scatter(
                                 range(len(word_list)), 
                                 importance_scores, 
                                 s=sizes, 
@@ -805,7 +814,7 @@ async def analyze_text(
                             
                             # 키워드 레이블 추가
                             for i, word in enumerate(word_list):
-                                plt.annotate(
+                                ax.annotate(
                                     word, 
                                     (i, importance_scores[i]),
                                     xytext=(0, 5),
@@ -814,12 +823,15 @@ async def analyze_text(
                                     fontsize=9
                                 )
                             
-                            plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), label='중요도 점수')
-                            plt.title('키워드 영향력 버블 차트', fontsize=16)
-                            plt.xlabel('키워드', fontsize=12)
-                            plt.ylabel('중요도 점수', fontsize=12)
-                            plt.xticks(range(len(word_list)), word_list, rotation=90)
-                            plt.grid(True, linestyle='--', alpha=0.7)
+                            # 컬러바 추가 (ax 매개변수 지정)
+                            fig.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax, label='중요도 점수')
+                            ax.set_title('키워드 영향력 버블 차트', fontsize=16)
+                            ax.set_xlabel('키워드', fontsize=12)
+                            ax.set_ylabel('중요도 점수', fontsize=12)
+                            ax.set_xticks(range(len(word_list)))
+                            ax.set_xticklabels(word_list, rotation=90)
+                            ax.grid(True, linestyle='--', alpha=0.7)
+                            
                             plt.tight_layout()
                             plt.savefig(bubble_path, bbox_inches='tight')
                             plt.close()
@@ -851,9 +863,9 @@ async def analyze_text(
                         import matplotlib.font_manager as fm
                         # 가능한 한글 폰트 경로 목록
                         font_paths = [
+                            'C:/Windows/Fonts/NanumGothic.ttf',
                             '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
-                            '/app/fonts/NanumGothic.ttf',
-                            'C:/Windows/Fonts/malgun.ttf'
+                            '/app/fonts/NanumGothic.ttf'
                         ]
                         
                         font_set = False
@@ -872,7 +884,17 @@ async def analyze_text(
                     
                     # 3D 차원 축소 (TSNE)
                     if analyzer.tf_idf_matrix.shape[0] >= 4:  # 최소 4개 이상의 문서가 필요
-                        tsne_3d = TSNE(n_components=3, random_state=42, perplexity=min(30, analyzer.tf_idf_matrix.shape[0]-1))
+                        # 데이터 샘플 수에 따라 perplexity 조정
+                        n_samples = analyzer.tf_idf_matrix.shape[0]
+                        # perplexity는 보통 5~50 사이의 값 사용, 데이터 개수보다 작아야 함
+                        optimal_perplexity = min(30, max(5, n_samples // 3))
+                        
+                        # 안전하게 샘플 수보다 작은 값으로 설정
+                        if optimal_perplexity >= n_samples:
+                            optimal_perplexity = max(2, n_samples - 1)
+                            
+                        print(f"3D t-SNE 설정: 샘플 수 = {n_samples}, perplexity = {optimal_perplexity}")
+                        tsne_3d = TSNE(n_components=3, random_state=42, perplexity=optimal_perplexity)
                         tsne_results_3d = tsne_3d.fit_transform(analyzer.tf_idf_matrix.toarray())
                         
                         # 군집화 (Spectral Clustering)
@@ -958,12 +980,20 @@ async def download_csv(data: List[dict]):
         df = pd.DataFrame(data)
         df.to_csv(temp_path, index=False, encoding='utf-8-sig')  # UTF-8 BOM 인코딩 (Excel 호환)
         
+        # 백그라운드 작업으로 파일 삭제하는 함수 - 비동기 함수로 변경
+        async def remove_file():
+            try:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+            except Exception as e:
+                print(f"임시 파일 삭제 중 오류: {e}")
+        
         # 파일 응답 생성
         return FileResponse(
             path=temp_path,
             filename="텍스트_분석_결과.csv",
             media_type="text/csv",
-            background=lambda: os.remove(temp_path)  # 다운로드 후 임시 파일 삭제
+            background=remove_file
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"CSV 파일 생성 중 오류: {str(e)}")
@@ -975,15 +1005,114 @@ async def download_zip(html_content: str = Form(...)):
         temp_dir = tempfile.mkdtemp()
         zip_path = os.path.join(temp_dir, "텍스트_분석_결과.zip")
         
-        # HTML 파일 생성
+        # HTML 파일에 필요한 스타일과 스크립트 추가
+        enhanced_html = html_content
+        
+        # 1. CSS 스타일 추가 (HTML <head> 끝 부분에 추가)
+        style_content = """
+        <style>
+            /* 섹션 간 여백 증가 */
+            .result-section {
+                margin-bottom: 50px;
+                padding-bottom: 30px;
+                clear: both;
+            }
+            
+            /* 감정 분석 섹션 특별 여백 */
+            #sentiment-content .result-section {
+                margin-bottom: 70px;
+            }
+            
+            /* 워드클라우드 섹션 */
+            #sentimentCloudResults {
+                padding-top: 40px;
+                clear: both;
+            }
+            
+            /* 감정 분석 워드클라우드 제목 */
+            #sentiment-content .result-section:nth-child(2) h3 {
+                margin-top: 50px;
+                padding-top: 30px;
+            }
+            
+            /* 프로그레스 바 아래 여백 */
+            .progress {
+                margin-bottom: 50px;
+            }
+        </style>
+        """
+        
+        if '</head>' in enhanced_html:
+            enhanced_html = enhanced_html.replace('</head>', f'{style_content}</head>')
+        else:
+            # HTML에 <head> 태그가 없을 경우 추가
+            enhanced_html = f'<head>{style_content}</head>{enhanced_html}'
+        
+        # 2. HTML 직접 수정 - 탭 메뉴와 다운로드 버튼 숨기기
+        # 탭 메뉴(resultTabs) 숨기기
+        import re
+        
+        # 탭 메뉴 부분을 찾아서 스타일 속성 추가
+        tab_pattern = r'<ul\s+class="nav\s+nav-tabs"\s+id="resultTabs".*?>(.*?)</ul>'
+        enhanced_html = re.sub(tab_pattern, 
+                              r'<ul class="nav nav-tabs" id="resultTabs" style="display:none;">\1</ul>', 
+                              enhanced_html, 
+                              flags=re.DOTALL)
+        
+        # 다운로드 버튼 부분 숨기기
+        download_pattern = r'<div\s+class="d-flex\s+justify-content-center\s+gap-3\s+mt-4\s+mb-5">(.*?)</div>'
+        enhanced_html = re.sub(download_pattern, 
+                              r'<div class="d-flex justify-content-center gap-3 mt-4 mb-5" style="display:none;">\1</div>', 
+                              enhanced_html, 
+                              flags=re.DOTALL)
+        
+        # 모든 탭 콘텐츠를 활성화 (fade 클래스 제거, show 및 active 클래스 추가)
+        tab_pane_pattern = r'<div\s+class="tab-pane\s+fade(?:\s+animated)?(?:\s+show)?(?:\s+active)?"\s+id="([^"]+)"'
+        enhanced_html = re.sub(tab_pane_pattern, 
+                              r'<div class="tab-pane show active" id="\1"', 
+                              enhanced_html)
+        
+        # 3. JavaScript 추가 (HTML <body> 끝 부분에 추가) - 보험으로 남겨둠
+        script_content = """
+        <script>
+            // 페이지 로드 시 실행
+            document.addEventListener('DOMContentLoaded', function() {
+                // 탭 버튼들을 숨기기 (상단 탭 메뉴 전체)
+                const tabsNav = document.querySelector('#resultTabs');
+                if (tabsNav) {
+                    tabsNav.style.display = 'none';
+                }
+                
+                // 모든 탭 콘텐츠를 표시 (숨겨진 콘텐츠도 모두 표시)
+                document.querySelectorAll('.tab-pane').forEach(pane => {
+                    pane.classList.add('show', 'active');
+                    pane.classList.remove('fade'); // 페이드 효과 제거
+                });
+                
+                // 다운로드 버튼들이 있는 div 전체를 제거
+                const downloadButtonsDiv = document.querySelector('.d-flex.justify-content-center.gap-3.mt-4.mb-5');
+                if (downloadButtonsDiv) {
+                    downloadButtonsDiv.style.display = 'none'; // 완전히 숨기기
+                }
+            });
+        </script>
+        """
+        
+        if '</body>' in enhanced_html:
+            enhanced_html = enhanced_html.replace('</body>', f'{script_content}</body>')
+        else:
+            # HTML에 <body> 태그가 없을 경우 추가
+            enhanced_html = f'{enhanced_html}<script>{script_content}</script>'
+        
+        # 수정된 HTML 저장
         html_path = os.path.join(temp_dir, "분석_결과.html")
         with open(html_path, "w", encoding="utf-8") as f:
-            f.write(html_content)
+            f.write(enhanced_html)
         
         # 이미지 파일 복사 (from static 폴더)
         # 이미지 파일 경로 추출
         import re
-        img_paths = re.findall(r'src="(/static/[^"]+)"', html_content)
+        img_paths = re.findall(r'src="(/static/[^"]+)"', enhanced_html)
         
         for img_path in img_paths:
             # 상대 경로를 절대 경로로 변환
@@ -995,14 +1124,14 @@ async def download_zip(html_content: str = Form(...)):
                 shutil.copy2(full_path, target_path)
                 
                 # HTML 파일 내 이미지 경로 수정
-                html_content = html_content.replace(
+                enhanced_html = enhanced_html.replace(
                     f'src="{img_path}"', 
                     f'src="{os.path.basename(img_path)}"'
                 )
         
         # 수정된 HTML 다시 저장
         with open(html_path, "w", encoding="utf-8") as f:
-            f.write(html_content)
+            f.write(enhanced_html)
         
         # ZIP 파일 생성
         with zipfile.ZipFile(zip_path, 'w') as zip_file:
@@ -1015,12 +1144,20 @@ async def download_zip(html_content: str = Form(...)):
                 if os.path.exists(full_path):
                     zip_file.write(full_path, os.path.basename(img_path))
         
+        # 백그라운드 작업으로 임시 폴더 삭제하는 함수 - 비동기 함수로 변경
+        async def remove_temp_dir():
+            try:
+                if os.path.exists(temp_dir):
+                    shutil.rmtree(temp_dir)
+            except Exception as e:
+                print(f"임시 폴더 삭제 중 오류: {e}")
+        
         # 파일 응답 생성
         return FileResponse(
             path=zip_path,
             filename="텍스트_분석_결과.zip",
             media_type="application/zip",
-            background=lambda: shutil.rmtree(temp_dir)  # 다운로드 후 임시 폴더 삭제
+            background=remove_temp_dir
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"ZIP 파일 생성 중 오류: {str(e)}")

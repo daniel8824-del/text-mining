@@ -206,6 +206,10 @@ class TextMiningAnalysis:
             self.tokenized_corpus.append(tokens)
             self.processed_corpus.append(' '.join(tokens))
         
+        # 전체 단어 빈도 저장 (버블 차트 생성을 위해)
+        all_words = [word for doc in self.tokenized_corpus for word in doc]
+        self.word_freq = Counter(all_words)
+        
         return self.processed_corpus
     
     def _normalize_korean(self, text):
@@ -273,6 +277,18 @@ class TextMiningAnalysis:
     def create_word_cloud(self, width=800, height=400, font_path=None):
         # 워드 클라우드 생성
         all_words = ' '.join(self.processed_corpus)
+        
+        # 폰트 경로가 없으면 나눔고딕 경로 자동 탐색
+        if font_path is None:
+            possible_paths = [
+                'C:/Windows/Fonts/NanumGothic.ttf',
+                '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
+                '/app/fonts/NanumGothic.ttf'
+            ]
+            for path in possible_paths:
+                if os.path.exists(path):
+                    font_path = path
+                    break
         
         wordcloud = WordCloud(
             font_path=font_path,
@@ -350,11 +366,13 @@ class TextMiningAnalysis:
         
         # 한글 폰트 설정 (시스템에 적합한 폰트 선택)
         try:
-            if os.path.exists('C:/Windows/Fonts/malgun.ttf'):  # Windows
+            if os.path.exists('C:/Windows/Fonts/NanumGothic.ttf'):  # Windows
+                plt.rcParams['font.family'] = 'NanumGothic'
+            elif os.path.exists('/usr/share/fonts/truetype/nanum/NanumGothic.ttf'):  # Linux
                 plt.rcParams['font.family'] = 'NanumGothic'
             else:
-                # Linux/Mac에서는 운영체제에 설치된 기본 폰트 사용
-                plt.rcParams['font.family'] = 'NanumGothic'
+                # 기본 폰트 사용
+                plt.rcParams['font.family'] = 'sans-serif'
         except Exception:
             # 폰트 설정 오류 발생 시 기본 폰트 사용
             pass
@@ -372,7 +390,7 @@ class TextMiningAnalysis:
         nx.draw_networkx_nodes(graph, pos, node_size=node_sizes, 
                               node_color='lightblue', alpha=0.8)
         nx.draw_networkx_edges(graph, pos, width=edge_weights, alpha=0.5)
-        nx.draw_networkx_labels(graph, pos, font_size=12, font_family='NanumGothic') #sans-serif->NanumGothic
+        nx.draw_networkx_labels(graph, pos, font_size=12, font_family='NanumGothic')
         
         plt.axis('off')
         plt.tight_layout()
@@ -577,7 +595,7 @@ if __name__ == "__main__":
     
     # 8.1 전체 워드 클라우드
     print("- 전체 키워드 워드 클라우드 생성 중...")
-    wordcloud = analyzer.create_word_cloud(font_path='C:/Windows/Fonts/malgun.ttf')
+    wordcloud = analyzer.create_word_cloud()
     wordcloud.to_file('visualization_results/wordcloud_all.png')
     
     # 8.2 키워드 네트워크 (한글 폰트 적용)
@@ -592,8 +610,15 @@ if __name__ == "__main__":
     print("- 긍정 단어 워드 클라우드 생성 중...")
     pos_words_text = ' '.join([f"{word} " * count for word, count in pos_word_counts.items()])
     if pos_words_text.strip():
+        # 나눔고딕 폰트 경로 찾기
+        font_path = None
+        for path in ['C:/Windows/Fonts/NanumGothic.ttf', '/usr/share/fonts/truetype/nanum/NanumGothic.ttf', '/app/fonts/NanumGothic.ttf']:
+            if os.path.exists(path):
+                font_path = path
+                break
+        
         pos_wordcloud = WordCloud(
-            font_path='C:/Windows/Fonts/malgun.ttf',
+            font_path=font_path,
             width=800, 
             height=400, 
             background_color='white',
@@ -613,8 +638,15 @@ if __name__ == "__main__":
     print("- 부정 단어 워드 클라우드 생성 중...")
     neg_words_text = ' '.join([f"{word} " * count for word, count in neg_word_counts.items()])
     if neg_words_text.strip():
+        # 나눔고딕 폰트 경로 찾기
+        font_path = None
+        for path in ['C:/Windows/Fonts/NanumGothic.ttf', '/usr/share/fonts/truetype/nanum/NanumGothic.ttf', '/app/fonts/NanumGothic.ttf']:
+            if os.path.exists(path):
+                font_path = path
+                break
+        
         neg_wordcloud = WordCloud(
-            font_path='C:/Windows/Fonts/malgun.ttf',
+            font_path=font_path,
             width=800, 
             height=400, 
             background_color='white',
@@ -735,7 +767,7 @@ if __name__ == "__main__":
         nx.draw_networkx_nodes(network, pos, node_size=node_sizes, 
                             node_color=node_colors, alpha=0.8)
         nx.draw_networkx_edges(network, pos, width=edge_weights, alpha=0.3)
-        nx.draw_networkx_labels(network, pos, font_size=10, font_family='NanumGothic') #sans-serif->NanumGothic
+        nx.draw_networkx_labels(network, pos, font_size=10, font_family='NanumGothic')
     
         # 커뮤니티 라벨 추가
         for i, community in enumerate(communities[:5]):  # 상위 5개 커뮤니티만 라벨 표시
@@ -751,7 +783,7 @@ if __name__ == "__main__":
             
                 plt.text(comm_center_x, comm_center_y, comm_label, 
                         bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'),
-                        horizontalalignment='center', fontsize=12)
+                        horizontalalignment='center', fontsize=12, fontfamily='NanumGothic')
     
         plt.axis('off')
         plt.title('키워드 클러스터 분석', fontsize=16, pad=20)
