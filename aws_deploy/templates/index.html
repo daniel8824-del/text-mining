@@ -947,33 +947,20 @@
                     document.getElementById('bubbleChartResults').innerHTML = '<div class="alert alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>키워드 영향력 버블 차트를 생성할 수 없습니다.</div>';
                 }
 
-                // 키워드 군집 3D 시각화 표시
-                if (data.clusters3d_path) {
-                    document.getElementById('clusters3dResults').innerHTML = `
-                        <div class="card shadow-sm">
-                            <div class="card-body p-0">
-                                <img src="${data.clusters3d_path}" class="img-fluid rounded" alt="키워드 군집 3D 시각화">
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    document.getElementById('clusters3dResults').innerHTML = '<div class="alert alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>키워드 군집 3D 시각화를 생성할 수 없습니다.</div>';
-                }
-                
                 // 인터랙티브 3D 시각화 표시
                 if (data.interactive_3d_path) {
                     document.getElementById('interactive3dResults').innerHTML = `
                         <div class="card shadow-sm">
                             <div class="card-body p-0">
-                                <div style="height:550px; overflow:hidden; position:relative;">
-                                    <iframe src="${data.interactive_3d_path}" allowfullscreen="true" scrolling="no" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none;"></iframe>
+                                <div class="ratio ratio-16x9">
+                                    <iframe src="${data.interactive_3d_path}" allowfullscreen></iframe>
                                 </div>
                                 <div class="p-3 text-center">
-                                    <a href="${data.interactive_3d_path}" target="_blank" class="btn btn-primary btn-lg px-4 py-2" onclick="openFullscreen('${data.interactive_3d_path}'); return false;">
-                                        <i class="fas fa-expand me-2"></i> 전체화면으로 보기
+                                    <a href="${data.interactive_3d_path}" target="_blank" class="btn btn-primary btn-lg px-4 py-2">
+                                        <i class="fas fa-external-link-alt me-2"></i> 새 창에서 열기 (더 넓게 보기)
                                     </a>
                                     <p class="text-muted mt-2 small">
-                                        <i class="fas fa-info-circle me-1"></i> 마우스로 드래그하여 회전, 스크롤하여 확대/축소할 수 있습니다.
+                                        <i class="fas fa-info-circle me-1"></i> 새 창에서 열면 더 큰 화면으로 확대/축소/회전이 가능합니다
                                     </p>
                                 </div>
                             </div>
@@ -989,8 +976,6 @@
                 // 다운로드 버튼 표시
                 document.getElementById('download-csv').style.display = 'inline-block';
                 document.getElementById('download-pdf').style.display = 'inline-block';
-                // 다운로드 버튼 텍스트 확인
-                document.getElementById('download-pdf').innerHTML = '<i class="fas fa-file-archive me-2"></i> 결과 및 이미지 다운로드(ZIP)';
 
                 // 결과 표시 및 스크롤 이동
                 results.style.display = 'block';
@@ -1137,29 +1122,17 @@
                 const formData = new FormData();
                 formData.append('html_content', htmlContent);
                 
-                console.log('다운로드 요청 시작...');
-                
-                // POST 요청으로 전송
+                // POST 요청으로 변경
                 const response = await fetch('/download_pdf', {
                     method: 'POST',
                     body: formData
                 });
                 
-                console.log('서버 응답 상태:', response.status, response.statusText);
-                
                 if (response.ok) {
                     // 응답을 Blob으로 변환
                     const blob = await response.blob();
-                    console.log('응답 blob 크기:', blob.size, 'bytes');
-                    
-                    // 유효한 blob인지 확인
-                    if (blob.size === 0) {
-                        throw new Error('서버에서 빈 응답이 반환되었습니다. 파일이 생성되지 않았습니다.');
-                    }
-                    
                     // Blob URL 생성
                     const url = window.URL.createObjectURL(blob);
-                    
                     // 다운로드 링크 생성 및 클릭
                     const a = document.createElement('a');
                     a.href = url;
@@ -1172,45 +1145,17 @@
                     // 다운로드 성공 메시지
                     showAlert('success', 'ZIP 파일이 성공적으로 다운로드되었습니다.');
                 } else {
-                    let errorMessage = '다운로드 실패';
-                    
-                    if (response.status === 504 || response.status === 408) {
-                        errorMessage = '요청 시간이 초과되었습니다. 다시 시도해 주세요.';
-                    } else {
-                        try {
-                            // 서버에서 반환한 오류 메시지 읽기 시도
-                            const errorText = await response.text();
-                            errorMessage = `다운로드 실패 (코드: ${response.status}) - ${errorText || '서버 오류'}`;
-                        } catch (readError) {
-                            errorMessage = `다운로드 실패 (코드: ${response.status}) - 오류 메시지를 읽을 수 없습니다.`;
-                        }
-                    }
-                    
-                    throw new Error(errorMessage);
+                    throw new Error('ZIP 다운로드 실패');
                 }
             } catch (error) {
-                console.error('다운로드 오류 상세 정보:', error);
-                showAlert('danger', `ZIP 다운로드 중 오류가 발생했습니다: ${error.message}`);
+                showAlert('danger', 'ZIP 다운로드 중 오류가 발생했습니다.');
+                console.error(error);
             } finally {
                 // 버튼 상태 복원
                 this.disabled = false;
                 this.innerHTML = '<i class="fas fa-file-archive me-2"></i> 결과 및 이미지 다운로드(ZIP)';
             }
         });
-
-        // 전체화면으로 보기 기능 개선
-        function openFullscreen(url) {
-            // 새 창 열기 설정 (전체화면 모드 지원)
-            const windowFeatures = "fullscreen=yes,menubar=no,toolbar=no,location=no,status=no,scrollbars=no,resizable=yes";
-            const newWindow = window.open(url, "_blank", windowFeatures);
-            
-            // 창이 차단되지 않았는지 확인
-            if (newWindow) {
-                newWindow.focus();
-            } else {
-                alert("팝업이 차단되었습니다. 팝업 차단을 해제해주세요.");
-            }
-        }
     </script>
 </body>
 
