@@ -45,23 +45,42 @@ class TextMiningAnalysis:
         self.pos_words = {word for word, score in self.knu_dict.items() if score > 0}
         self.neg_words = {word for word, score in self.knu_dict.items() if score < 0}
 
-        # 데이터 폴더 지정
+        # 데이터 폴더 지정 (필요한 경우에만 생성)
         self.data_dir = 'data'
         os.makedirs(self.data_dir, exist_ok=True)
 
         # 텍스트 데이터 로드
         self.corpus = []
         if file_path:
-            full_path = os.path.join(self.data_dir, os.path.basename(file_path))
+            # 파일 존재 확인 및 경로 출력
+            print(f"파일 경로 확인: {file_path}, 존재 여부: {os.path.exists(file_path)}")
+            
             # 파일 타입에 따라 처리
             if file_path.endswith('.csv'):
-                df = pd.read_csv(full_path)
-                self.df = df
-                self.corpus = df[text_column].dropna().tolist()
+                try:
+                    # 직접 제공된 경로 사용
+                    df = pd.read_csv(file_path)
+                    self.df = df
+                    
+                    # text_column이 DataFrame에 있는지 확인
+                    if text_column in df.columns:
+                        self.corpus = df[text_column].dropna().tolist()
+                    else:
+                        print(f"경고: '{text_column}' 열을 찾을 수 없습니다. 사용 가능한 열: {df.columns.tolist()}")
+                        # 첫 번째 열을 기본값으로 사용
+                        self.corpus = df.iloc[:, 0].dropna().tolist() 
+                except Exception as e:
+                    print(f"CSV 파일 로드 중 오류 발생: {e}")
+                    # 빈 코퍼스 생성
+                    self.corpus = ["샘플 텍스트입니다. 파일을 로드할 수 없습니다."]
             else:
-                with open(full_path, 'r', encoding='utf-8') as file:
-                    self.raw_text = file.read()
-                self.corpus = [self.raw_text]
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as file:
+                        self.raw_text = file.read()
+                    self.corpus = [self.raw_text]
+                except Exception as e:
+                    print(f"텍스트 파일 로드 중 오류 발생: {e}")
+                    self.corpus = ["샘플 텍스트입니다. 파일을 로드할 수 없습니다."]
 
         # 분석 결과 저장 변수
         self.processed_corpus = []
