@@ -472,6 +472,42 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('페이지가 로드되었습니다.');
             
+            // 캔버스 최적화 - willReadFrequently 속성 설정
+            const setWillReadFrequently = function() {
+                // 페이지의 모든 canvas 요소에 willReadFrequently 속성 설정
+                const canvases = document.querySelectorAll('canvas');
+                canvases.forEach(canvas => {
+                    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                });
+                
+                // 동적으로 생성되는 캔버스를 위한 MutationObserver 설정
+                const observer = new MutationObserver(mutations => {
+                    mutations.forEach(mutation => {
+                        if (mutation.addedNodes) {
+                            mutation.addedNodes.forEach(node => {
+                                if (node.nodeName === 'CANVAS') {
+                                    const ctx = node.getContext('2d', { willReadFrequently: true });
+                                }
+                                // 하위 요소에서 canvas 검색
+                                const canvases = node.querySelectorAll ? node.querySelectorAll('canvas') : [];
+                                canvases.forEach(canvas => {
+                                    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                                });
+                            });
+                        }
+                    });
+                });
+                
+                // 전체 문서에서 변화 관찰 시작
+                observer.observe(document.body, { 
+                    childList: true, 
+                    subtree: true 
+                });
+            };
+            
+            // 초기화 시 호출
+            setWillReadFrequently();
+            
             // 탭 초기화
             const tabElements = document.querySelectorAll('button[data-bs-toggle="tab"]');
             if (tabElements.length > 0) {
@@ -489,6 +525,12 @@
                             targetPane.classList.remove('animated');
                             void targetPane.offsetWidth; // 강제 리플로우
                             targetPane.classList.add('animated');
+                            
+                            // 탭 전환 시 캔버스 최적화 재적용
+                            const canvases = targetPane.querySelectorAll('canvas');
+                            canvases.forEach(canvas => {
+                                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                            });
                         }
                     });
                 });
