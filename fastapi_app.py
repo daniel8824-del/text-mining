@@ -1123,13 +1123,91 @@ async def analyze_text(
                     results['bubble_path'] = ''
                 
                 # 3) 키워드 군집 3D 시각화
-                # 3D 시각화 부분 완전 제거 - 메모리 사용량 최적화를 위해
-                # 아래 코드는 제거 후 빈 경로 반환
-                results['clusters3d_path'] = ''
-                logger.info("3D 시각화 기능이 메모리 최적화를 위해 비활성화되었습니다.")
+                clusters3d_path = os.path.join(STATIC_DIR, f'clusters3d_{unique_filename}.png')
                 
-                # 원래 3D 시각화 코드는 여기 있었습니다 - 메모리 사용량 감소를 위해 제거됨
-
+                try:
+                    # 한글 폰트 설정 - 명시적으로 여기서 다시 설정
+                    try:
+                        import matplotlib.font_manager as fm
+                        # 가능한 한글 폰트 경로 목록
+                        font_paths = [
+                            'C:/Windows/Fonts/NanumGothic.ttf',
+                            '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
+                            '/app/fonts/NanumGothic.ttf'
+                        ]
+                        
+                        font_set = False
+                        for font_path in font_paths:
+                            if os.path.exists(font_path):
+                                plt.rcParams['font.family'] = 'NanumGothic'
+                                plt.rcParams['axes.unicode_minus'] = False
+                                logger.info(f"3D 시각화용 한글 폰트 설정 완료: {font_path}")
+                                font_set = True
+                                break
+                                
+                        if not font_set:
+                            logger.warning("3D 시각화용 한글 폰트를 찾을 수 없습니다.")
+                    except Exception as font_err:
+                        logger.error(f"3D 시각화 폰트 설정 오류: {font_err}")
+                    
+                    # 3D 차원 축소 (TSNE)
+                    if analyzer.tf_idf_matrix.shape[0] >= 4:  # 최소 4개 이상의 문서가 필요
+                        # 데이터 샘플 수에 따라 perplexity 조정
+                        n_samples = analyzer.tf_idf_matrix.shape[0]
+                        # perplexity는 보통 5~50 사이의 값 사용, 데이터 개수보다 작아야 함
+                        optimal_perplexity = min(30, max(5, n_samples // 3))
+                        
+                        # 안전하게 샘플 수보다 작은 값으로 설정
+                        if optimal_perplexity >= n_samples:
+                            optimal_perplexity = max(2, n_samples - 1)
+                            
+                        logger.info(f"3D t-SNE 설정: 샘플 수 = {n_samples}, perplexity = {optimal_perplexity}")
+                        tsne_3d = TSNE(n_components=3, random_state=42, perplexity=optimal_perplexity)
+                        tsne_results_3d = tsne_3d.fit_transform(analyzer.tf_idf_matrix.toarray())
+                        
+                        # 군집화 (Spectral Clustering)
+                        n_clusters = min(4, analyzer.tf_idf_matrix.shape[0])
+                        spectral = SpectralClustering(n_clusters=n_clusters, random_state=42, assign_labels='discretize')
+                        spectral_labels = spectral.fit_predict(analyzer.tf_idf_matrix.toarray())
+                        
+                        # 3D 시각화
+                        fig = plt.figure(figsize=(12, 10))
+                        ax = fig.add_subplot(111, projection='3d')
+                        
+                        # 색상 생성
+                        colors_3d = plt.cm.jet(np.linspace(0, 1, len(np.unique(spectral_labels))))
+                        
+                        # 각 클러스터 그리기
+                        for i, label in enumerate(np.unique(spectral_labels)):
+                            indices = spectral_labels == label
+                            xs = tsne_results_3d[indices, 0]
+                            ys = tsne_results_3d[indices, 1]
+                            zs = tsne_results_3d[indices, 2]
+                            if len(xs) > 0:  # 점이 있는지 확인
+                                ax.scatter(xs, ys, zs, c=[colors_3d[i]], label=f'클러스터 {i+1}', s=50, alpha=0.8)
+                        
+                        ax.set_title('키워드 군집 3D 시각화', fontsize=16)
+                        ax.view_init(35, 45)  # 시각화 각도 조정
+                        ax.legend()
+                        ax.grid(True)
+                        plt.tight_layout()
+                        plt.savefig(clusters3d_path, bbox_inches='tight', dpi=150)
+                        plt.close()
+                        
+                        # 파일 생성 확인
+                        if os.path.exists(clusters3d_path):
+                            logger.info(f"3D 시각화 이미지 생성 완료: {clusters3d_path}")
+                            results['clusters3d_path'] = f'/static/clusters3d_{unique_filename}.png'
+                        else:
+                            logger.warning("3D 시각화 이미지 생성 실패")
+                            results['clusters3d_path'] = ''
+                    else:
+                        logger.warning("3D 시각화를 위한 충분한 데이터가 없습니다.")
+                        results['clusters3d_path'] = ''
+                except Exception as viz3d_error:
+                    logger.error(f"3D 시각화 생성 오류: {viz3d_error}")
+                    logger.error(traceback.format_exc())
+                    results['clusters3d_path'] = ''
             else:
                 logger.warning("고급 분석을 위한 충분한 데이터가 없습니다.")
                 results['clustering_path'] = ''
