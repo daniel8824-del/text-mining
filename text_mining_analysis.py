@@ -351,10 +351,10 @@ class TextMiningAnalysis:
         # 한글 폰트 설정 (시스템에 적합한 폰트 선택)
         try:
             if os.path.exists('C:/Windows/Fonts/malgun.ttf'):  # Windows
-                plt.rcParams['font.family'] = 'Malgun Gothic'
+                plt.rcParams['font.family'] = 'NanumGothic'
             else:
                 # Linux/Mac에서는 운영체제에 설치된 기본 폰트 사용
-                plt.rcParams['font.family'] = 'sans-serif'
+                plt.rcParams['font.family'] = 'NanumGothic'
         except Exception:
             # 폰트 설정 오류 발생 시 기본 폰트 사용
             pass
@@ -372,7 +372,7 @@ class TextMiningAnalysis:
         nx.draw_networkx_nodes(graph, pos, node_size=node_sizes, 
                               node_color='lightblue', alpha=0.8)
         nx.draw_networkx_edges(graph, pos, width=edge_weights, alpha=0.5)
-        nx.draw_networkx_labels(graph, pos, font_size=12, font_family='Malgun Gothic') #sans-serif->Malgun Gothic
+        nx.draw_networkx_labels(graph, pos, font_size=12, font_family='NanumGothic') #sans-serif->NanumGothic
         
         plt.axis('off')
         plt.tight_layout()
@@ -735,7 +735,7 @@ if __name__ == "__main__":
         nx.draw_networkx_nodes(network, pos, node_size=node_sizes, 
                             node_color=node_colors, alpha=0.8)
         nx.draw_networkx_edges(network, pos, width=edge_weights, alpha=0.3)
-        nx.draw_networkx_labels(network, pos, font_size=10, font_family='Malgun Gothic') #sans-serif->Malgun Gothic 
+        nx.draw_networkx_labels(network, pos, font_size=10, font_family='NanumGothic') #sans-serif->NanumGothic
     
         # 커뮤니티 라벨 추가
         for i, community in enumerate(communities[:5]):  # 상위 5개 커뮤니티만 라벨 표시
