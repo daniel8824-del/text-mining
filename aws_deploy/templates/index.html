@@ -272,6 +272,12 @@
                                     <span class="input-group-text"><i class="fas fa-file-csv"></i></span>
                                 </div>
                                 <div class="form-text">CSV 형식의 데이터 파일을 업로드하세요.</div>
+                                <div class="form-text text-warning">
+                                    <i class="fas fa-exclamation-triangle"></i> <strong>중요:</strong> 현재 서비스는 최대 1,000개 행까지 데이터가 처리됩니다.
+                                </div>
+                                <div class="invalid-feedback">
+                                    CSV 파일을 선택해주세요.
+                                </div>
                             </div>
 
                             <div class="mb-4">
@@ -947,7 +953,7 @@
                         <div class="card shadow-sm">
                             <div class="card-body p-0">
                                 <div style="height:700px; overflow:hidden; position:relative;">
-                                    <iframe src="${data.interactive_3d_path}" allowfullscreen="true" scrolling="no" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none;"></iframe>
+                                    <iframe id="interactive3dFrame" src="${data.interactive_3d_path}" allowfullscreen="true" scrolling="no" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none;" onload="optimizeIframeCanvas(this)"></iframe>
                                 </div>
                             </div>
                         </div>
@@ -977,6 +983,66 @@
                 loading.style.display = 'none';
             }
         });
+
+        // iframe 내부의 캔버스 최적화 함수
+        function optimizeIframeCanvas(iframe) {
+            try {
+                setTimeout(() => {
+                    if (iframe.contentWindow && iframe.contentDocument) {
+                        // iframe 내부 문서에 스크립트 주입
+                        const script = iframe.contentDocument.createElement('script');
+                        script.textContent = `
+                            // iframe 내부 캔버스 최적화
+                            function optimizeAllCanvases() {
+                                document.querySelectorAll('canvas').forEach(canvas => {
+                                    if (canvas.getContext) {
+                                        canvas.getContext('2d', { willReadFrequently: true });
+                                    }
+                                });
+                                
+                                // MutationObserver를 사용하여 새로 추가되는 캔버스 감시
+                                const observer = new MutationObserver(mutations => {
+                                    mutations.forEach(mutation => {
+                                        if (mutation.addedNodes) {
+                                            mutation.addedNodes.forEach(node => {
+                                                if (node.nodeName === 'CANVAS' && node.getContext) {
+                                                    node.getContext('2d', { willReadFrequently: true });
+                                                }
+                                                
+                                                if (node.querySelectorAll) {
+                                                    node.querySelectorAll('canvas').forEach(canvas => {
+                                                        if (canvas.getContext) {
+                                                            canvas.getContext('2d', { willReadFrequently: true });
+                                                        }
+                                                    });
+                                                }
+                                            });
+                                        }
+                                    });
+                                });
+                                
+                                observer.observe(document.body, {
+                                    childList: true,
+                                    subtree: true
+                                });
+                                
+                                console.log('iframe 내 캔버스 최적화 완료');
+                            }
+                            
+                            // 문서 로드 완료시 실행
+                            if (document.readyState === 'complete') {
+                                optimizeAllCanvases();
+                            } else {
+                                window.addEventListener('load', optimizeAllCanvases);
+                            }
+                        `;
+                        iframe.contentDocument.head.appendChild(script);
+                    }
+                }, 1000); // iframe 로드 후 1초 기다림
+            } catch (e) {
+                console.warn('iframe 캔버스 최적화 실패:', e);
+            }
+        }
 
         // 알림 표시 함수
         function showAlert(type, message) {
